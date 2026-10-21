@@ -792,7 +792,7 @@ function resultSummary(){
       <div class="kpi card"><span>برقم جوال</span><b>${fmtN(r.withPhone)}</b></div></div>
     <div class="row">${cats.map(([c, n]) => `<span class="tag">${esc(CATS[c]?.ar || c)} <b class="num">${fmtN(n)}</b></span>`).join("")}</div>
     <div id="d-map" class="map" ${window.claude ? "hidden" : ""}></div>
-    <div class="row">${r.added || r.found ? `<button type="button" class="btn" data-nav="leads">${icon("users")} عرض العملاء</button>` : ""}
+    <div class="row">${r.added || r.found ? `<button type="button" class="btn" data-nav="leads" data-reset>${icon("users")} عرض العملاء</button>` : ""}
       ${r.found >= r.cap && r.cap ? `<span class="hint">وصلت للحد (${fmtN(r.cap)}). كبّر الحد أو قسّم البحث على الأحياء لنتائج أكثر.</span>` : ""}</div>`;
 }
 let leafletLoading = null;
@@ -880,7 +880,8 @@ async function importOsmFile(e){
 }
 
 /* ================= views: leads table ================= */
-const T = {q:"", stage:"", cat:"", min:0, phone:true, sort:"score", dir:-1, page:1, sel:new Set()};
+const T = {q:"", stage:"", cat:"", min:0, phone:false, sort:"score", dir:-1, page:1, sel:new Set()};
+const resetFilters = () => Object.assign(T, {q:"", stage:"", cat:"", min:0, phone:false, page:1});
 const PER = 50;
 function filtered(){
   const q = T.q.trim(), qd = q.replace(/\D/g, "");
@@ -905,6 +906,8 @@ function renderLeads(opts = {}){
       <div class="seg" role="group" aria-label="أقل درجة">${[[0,"كل الدرجات"],[35,"35+"],[55,"55+"]].map(([v, t]) => `<button type="button" data-min="${v}" aria-pressed="${T.min === v}">${t}</button>`).join("")}</div>
       <label class="row small" style="gap:6px"><input type="checkbox" class="chk" id="t-phone" ${T.phone ? "checked" : ""}> برقم جوال فقط</label>
     </div>
+    ${all.length < leads().length ? `<div class="bulk" style="background:var(--sunk)"><span>يعرض <b class="num">${fmtN(all.length)}</b> من <b class="num">${fmtN(leads().length)}</b> عميل، والباقي مخفي بالفلاتر</span>
+      <button type="button" class="btn sec sm" id="t-showall">إظهار الكل</button></div>` : ""}
     ${T.sel.size ? `<div class="bulk"><b>${fmtN(T.sel.size)} محدد</b>
       <select id="b-stage" class="input" style="width:auto" aria-label="نقل إلى مرحلة"><option value="">نقل إلى مرحلة…</option>${STAGES.map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
       <button class="btn sec sm" id="b-export">${icon("down")} تصدير المحدد</button>
@@ -926,10 +929,11 @@ function renderLeads(opts = {}){
       </tr>`).join("")}</tbody></table></div>
       <div class="pager"><span class="muted num">${fmtN((T.page - 1) * PER + 1)}–${fmtN(Math.min(T.page * PER, all.length))} من ${fmtN(all.length)}</span>
         <div class="row"><button class="btn sec sm" id="p-prev" ${T.page <= 1 ? "disabled" : ""}>السابق</button><button class="btn sec sm" id="p-next" ${T.page >= pages ? "disabled" : ""}>التالي</button></div></div>`
-    : empty("users", leads().length ? "ما فيه نتائج بهذي الفلاتر" : "ما فيه عملاء بعد", leads().length ? "خفّف الفلاتر أو امسح البحث." : "ابدأ من صفحة اكتشاف العملاء.",
-        leads().length ? "" : `<button class="btn" data-nav="discover">اكتشاف عملاء</button>`)}
+    : empty("users", leads().length ? "ما فيه نتائج بهذي الفلاتر" : "ما فيه عملاء بعد", leads().length ? `عندك ${fmtN(leads().length)} عميل محفوظ، بس الفلاتر الحالية مخفيتهم.` : "ابدأ من صفحة اكتشاف العملاء.",
+        leads().length ? `<button class="btn" id="t-showall2">إظهار كل العملاء</button>` : `<button class="btn" data-nav="discover">اكتشاف عملاء</button>`)}
   </section>`;
   const re = () => { T.page = 1; renderLeads(); };
+  ["#t-showall", "#t-showall2"].forEach(id => $(id) && ($(id).onclick = () => { resetFilters(); renderLeads(); }));
   $("#t-q").oninput = e => { T.q = e.target.value; re(); const i = $("#t-q"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); };
   $("#t-stage").onchange = e => { T.stage = e.target.value; re(); };
   $("#t-cat").onchange = e => { T.cat = e.target.value; re(); };
@@ -1139,7 +1143,8 @@ function exportCsv(list){
 
 /* ================= global events ================= */
 document.addEventListener("click", e => {
-  const nav = e.target.closest("[data-nav]"); if(nav){ closeDrawer(); go(nav.dataset.nav); return; }
+  const nav = e.target.closest("[data-nav]");
+  if(nav){ if(nav.hasAttribute("data-reset")){ resetFilters(); Object.assign(T, {sort:"last", dir:-1}); } closeDrawer(); go(nav.dataset.nav); return; }
   if(e.target.closest("[data-close]")){ closeDrawer(); return; }
   const rep = e.target.closest("[data-repeat]");
   if(rep){
