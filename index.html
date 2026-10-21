@@ -165,6 +165,22 @@ td .t{font-weight:600}
 .step .dot{width:8px;height:8px;border-radius:50%;background:var(--line-2);flex:none}
 .step.done .dot{background:var(--accent)}.step.run .dot{background:var(--warm)}.step.err .dot{background:var(--danger)}
 
+.step-h{display:flex;align-items:center;gap:8px}
+.step-n{width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:inline-grid;place-items:center;font-size:12px;font-weight:700;flex:none}
+.place-chip{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--accent);background:var(--accent-soft);border-radius:8px}
+.place-chip .grow{flex:1;min-width:0}
+.place-list{display:grid;gap:4px}
+.place-opt{text-align:start;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;color:var(--fg-2)}
+.place-opt:hover{border-color:var(--accent)}
+.import-box{border:1px dashed var(--line-2);border-radius:var(--r);padding:14px}
+.pstep{display:flex;gap:10px;align-items:flex-start}
+.pdot{width:12px;height:12px;border-radius:50%;margin-top:6px;border:2px solid var(--line-2);flex:none}
+.pstep.done .pdot{background:var(--accent);border-color:var(--accent)}
+.pstep.run .pdot{border-color:var(--warm);border-top-color:transparent;animation:spin .8s linear infinite}
+.pstep.err .pdot{background:var(--danger);border-color:var(--danger)}
+.pstep:not(.done):not(.run):not(.err){opacity:.55}
+@keyframes spin{to{transform:rotate(360deg)}}
+.map{height:300px;border-radius:var(--r);border:1px solid var(--line);overflow:hidden;z-index:0}
 /* ---------- responsive ---------- */
 @media (max-width:1000px){.cols-2{grid-template-columns:1fr}}
 @media (max-width:860px){
@@ -245,7 +261,7 @@ function showFatal(msg){
 window.addEventListener("error", e => showFatal(`${e.message} (${e.lineno}:${e.colno})`));
 window.addEventListener("unhandledrejection", e => showFatal(String(e.reason?.message || e.reason)));
 /* ================= constants ================= */
-const OVERPASS = ["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];
+const OVERPASS = ["https://overpass-api.de/api/interpreter","https://overpass.private.coffee/api/interpreter","https://maps.mail.ru/osm/tools/overpass/api/interpreter"];
 const CATS = {
   dentist:{ar:"عيادات أسنان",f:['"amenity"="dentist"','"healthcare"="dentist"'],services:["نظام حجز مواعيد أونلاين","ملفات مرضى إلكترونية","تذكير المواعيد عبر واتساب"]},
   clinic:{ar:"عيادات ومراكز طبية",f:['"amenity"~"clinic|doctors"','"healthcare"~"clinic|doctor|physiotherapist"'],services:["نظام حجز مواعيد أونلاين","ملفات مرضى إلكترونية","تذكير المواعيد عبر واتساب"]},
@@ -484,23 +500,57 @@ function recordReply(l, text){
 }
 
 /* ================= data source ================= */
-function areaQuery(city, filters){
-  const name = city.replace(/["\\]/g, "");
-  return `[out:json][timeout:120];area[~"^name(:(ar|en))?$"~"^${name}$",i]->.a;(${filters.map(f => `nwr[${f}](area.a);`).join("")});out center tags;`;
+// Same flow as Overpass Turbo's {{geocodeArea}}: find the place once with Nominatim,
+// then search inside that place's exact area id (fast), instead of matching area names (very slow).
+const CC2ISO = {"966":"sa","971":"ae","965":"kw","974":"qa","973":"bh","968":"om","20":"eg","962":"jo"};
+async function fetchT(url, opts = {}, ms = 30000, signal){
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort("timeout"), ms);
+  const onAbort = () => ctl.abort("cancel"); signal?.addEventListener("abort", onAbort);
+  try{ return await fetch(url, {...opts, signal:ctl.signal}); }
+  catch(e){ const err = new Error(ctl.signal.reason === "cancel" ? "cancel" : ctl.signal.reason === "timeout" ? "timeout" : "offline"); err.kind = err.message; throw err; }
+  finally{ clearTimeout(timer); signal?.removeEventListener("abort", onAbort); }
 }
-async function overpass(query){
-  let last;
-  for(const url of OVERPASS){
+async function geocode(q){
+  const run = async cc => {
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=ar&q=${encodeURIComponent(q)}${cc ? "&countrycodes=" + cc : ""}`;
+    const res = await fetchT(url, {}, 20000);
+    if(!res.ok) throw Object.assign(new Error(res.status === 429 || res.status === 403 ? "خدمة تحديد المواقع مشغولة، جرّب بعد دقيقة" : "تعذر تحديد الموقع، جرّب بعد قليل"), {kind:"http"});
+    return (await res.json()).filter(r => r.boundingbox).map(r => ({
+      label:r.display_name, short:r.name || r.display_name.split(/[،,]/)[0], type:r.osm_type, id:+r.osm_id,
+      bbox:r.boundingbox.map(Number), lat:+r.lat, lon:+r.lon, kind:r.addresstype || r.type,
+    }));
+  };
+  const local = CC2ISO[S().cc] ? await run(CC2ISO[S().cc]) : [];
+  return local.length ? local : run("");
+}
+const KIND_AR = {city:"مدينة", town:"مدينة", village:"قرية", suburb:"حي", neighbourhood:"حي", quarter:"حي", state:"منطقة", province:"منطقة", county:"محافظة", country:"دولة", administrative:"منطقة إدارية"};
+function scopeOf(place){
+  if(place.type === "relation") return {pre:`area(id:${3600000000 + place.id})->.a;`, f:"(area.a)"};
+  if(place.type === "way") return {pre:`area(id:${2400000000 + place.id})->.a;`, f:"(area.a)"};
+  const [s, n, w, e] = place.bbox; return {pre:"", f:`(${s},${w},${n},${e})`};
+}
+function buildQuery(place, cats, cap, timeout = 90){
+  const sc = scopeOf(place);
+  const parts = cats.flatMap(c => CATS[c].f).map(f => `nwr[${f}][name]${sc.f};`).join("");
+  return `[out:json][timeout:${timeout}];${sc.pre}(${parts});out center tags${cap ? " " + cap : ""};`;
+}
+async function overpass(query, signal, onTry){
+  let last = "offline";
+  for(const [i, url] of OVERPASS.entries()){
+    onTry?.(i);
     try{
-      const res = await fetch(url, {method:"POST", body:new URLSearchParams({data:query})});
-      if(res.ok) return (await res.json()).elements || [];
-      last = res.status;
-      if(res.status === 429) await new Promise(r => setTimeout(r, 5000));
-    }catch(e){ last = "offline"; }
+      const res = await fetchT(url, {method:"POST", body:new URLSearchParams({data:query})}, 100000, signal);
+      if(res.ok){
+        const data = await res.json();
+        if(data.remark && /error|timed out|out of memory/i.test(data.remark)){ last = "busy"; continue; }
+        return data.elements || [];
+      }
+      last = res.status === 429 || res.status === 504 ? "busy" : "http";
+    }catch(e){ if(e.kind === "cancel") throw e; last = e.kind; }
   }
-  const err = new Error(last === 429 ? "خادم الخريطة مشغول، جرّب بعد دقيقة" : last === "offline" ? "ما قدرت أتصل بخادم الخريطة من هنا. استخدم Overpass Turbo تحت" : "خادم الخريطة رجّع خطأ، جرّب بعد دقيقة");
-  err.offline = last === "offline";
-  throw err;
+  const msg = {busy:"خوادم الخريطة مشغولة أو البحث كبير. قلّل أنواع النشاط أو حدّد حي بدل المدينة", timeout:"الخادم ما رد في الوقت. قلّل أنواع النشاط أو جرّب بعد دقيقة",
+    offline:"ما قدرت أتصل بخادم الخريطة من هنا. استخدم Overpass Turbo تحت", http:"خادم الخريطة رجّع خطأ، جرّب بعد دقيقة"}[last];
+  throw Object.assign(new Error(msg), {kind:last, offline:last === "offline"});
 }
 // Compile category filters (e.g. "amenity"~"clinic|doctors") so imported elements can be sorted into categories.
 const MATCHERS = Object.entries(CATS).map(([k, c]) => [k, c.f.map(f => {
@@ -513,10 +563,6 @@ function upsertLead(l){
   if(old){ Object.assign(old, {phone:l.phone, wa:l.wa, website:l.website, email:l.email, hours:l.hours, address:l.address, lat:l.lat, lng:l.lng}); return false; }
   state.leads[l.id] = {...l, stage:"new", activity:[{type:"created", at:nowIso()}], notes:"", followups:0, nextAt:null, added:nowIso()};
   return true;
-}
-function turboLink(city, cats){
-  const q = areaQuery(city, cats.flatMap(c => CATS[c].f)).replace("[timeout:120]", "[timeout:180]");
-  return `https://overpass-turbo.eu/?Q=${encodeURIComponent(q)}&R`;
 }
 function toLead(el, cat){
   const t = el.tags || {};
@@ -619,99 +665,198 @@ function renderDashboard(){
 }
 
 /* ================= views: discover ================= */
-let job = null;
+// Flow modelled on lead-extraction tools: 1 location → 2 business types → 3 options → live progress → preview → leads.
+let job = null, places = [], place = null;
+const CAPS = [[500,"500"],[1000,"1,000"],[3000,"3,000"],[0,"بدون حد"]];
 function renderDiscover(){
-  const sel = S().lastCats || ["dentist","clinic","salon"];
+  const s = S(), sel = s.lastCats || ["dentist","clinic","salon"];
+  place = place || s.lastPlace || null;
+  const framed = !!window.claude;
   $("#view").innerHTML = `
   <div class="cols-2">
-    <form class="card" id="discover-form">
-      <div class="card-h"><h2>بحث جديد</h2><span class="muted small">مصدر البيانات: OpenStreetMap · مجاني</span></div>
-      <div class="card-b grid">
-        <div class="fields">
-          <label class="field" for="d-city">المدينة أو الحي
-            <input id="d-city" required value="${esc(S().lastCity || "الرياض")}" placeholder="مثال: الرياض، جدة، Dubai">
-            <span class="hint">بالعربي أو الإنجليزي، كما يظهر في الخريطة</span></label>
-          <label class="field" for="d-min">أقل درجة تُحفظ
-            <input id="d-min" type="number" min="0" max="100" value="0"><span class="hint">0 يحفظ كل النتائج</span></label>
-        </div>
-        <div class="field">
-          <div class="spread"><span>نوع النشاط</span><button type="button" class="btn ghost sm" id="d-all">تحديد الكل</button></div>
+    <form class="card" id="discover-form" novalidate>
+      <div class="card-h"><h2>بحث جديد</h2><span class="muted small">المصدر: OpenStreetMap · مجاني</span></div>
+      <div class="card-b grid" style="gap:22px">
+        <section class="grid" style="gap:10px">
+          <div class="step-h"><span class="step-n">1</span><b>الموقع</b></div>
+          <div class="row" style="flex-wrap:nowrap">
+            <input id="d-city" class="input" required placeholder="مثال: الرياض، حي النخيل الرياض، Dubai" value="${esc(s.lastCity || "الرياض")}" aria-label="المدينة أو الحي">
+            <button type="button" class="btn sec" id="d-locate">${icon("pin")} تحديد</button>
+          </div>
+          <div id="d-place">${placeChip()}</div>
+          <div id="d-places" class="place-list" hidden></div>
+        </section>
+        <section class="grid" style="gap:10px">
+          <div class="step-h spread"><span class="row"><span class="step-n">2</span><b>نوع النشاط</b></span>
+            <button type="button" class="btn ghost sm" id="d-all">تحديد الكل</button></div>
           <div class="chips">${Object.entries(CATS).map(([k, c]) =>
             `<label class="chip"><input type="checkbox" value="${k}" ${sel.includes(k) ? "checked" : ""}>${c.ar}</label>`).join("")}</div>
+        </section>
+        <section class="grid" style="gap:10px">
+          <div class="step-h"><span class="step-n">3</span><b>الخيارات</b></div>
+          <div class="fields">
+            <label class="field" for="d-cap">أقصى عدد نتائج<select id="d-cap">${CAPS.map(([v, t]) => `<option value="${v}" ${(s.lastCap ?? 1000) === v ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+            <label class="field" for="d-min">أقل درجة تُحفظ<input id="d-min" type="number" min="0" max="100" value="${s.lastMin ?? 0}"></label>
+          </div>
+          <label class="row small" style="gap:8px"><input type="checkbox" class="chk" id="d-phone" ${s.lastPhone ? "checked" : ""}> احفظ اللي عندهم رقم جوال فقط</label>
+        </section>
+        <div class="row" ${framed ? "hidden" : ""}>
+          <button class="btn" id="d-run" style="padding:10px 22px">${icon("radar")} ابدأ الجمع</button>
+          <button type="button" class="btn ghost" id="d-cancel" hidden>إيقاف</button>
         </div>
-        <div class="row" ${window.claude ? "hidden" : ""}><button class="btn" id="d-run">${icon("radar")} ابدأ الجمع</button></div>
-        <div class="steps" id="d-steps"></div>
-      </div>
-      <div class="card-b grid" id="d-import" ${window.claude ? "" : 'style="border-top:1px solid var(--line)" hidden'}>
-        <div><b>جمع من خلال Overpass Turbo</b>
-          <p class="muted" style="margin:4px 0 0">${window.claude ? "هذي الصفحة على claude.ai ما تقدر تتصل بخادم الخريطة مباشرة، فالجمع يصير بثلاث خطوات سريعة:" : "إذا ما اشتغل الجمع المباشر، تقدر تجمع بثلاث خطوات:"}</p></div>
-        <ol style="margin:0;padding-inline-start:20px;display:grid;gap:6px">
-          <li>اضغط <b>افتح البحث</b>. يفتح موقع Overpass Turbo والبحث جاهز، وينتظر حتى تظهر النتائج على الخريطة.</li>
-          <li>هناك اضغط <b>Export</b> ثم <b>raw OSM data</b> عشان ينزل ملف JSON.</li>
-          <li>ارجع هنا واضغط <b>استيراد الملف</b> واختر الملف.</li>
-        </ol>
-        <div class="row">
-          <a class="btn sec" id="d-turbo" href="#" target="_blank" rel="noopener">${icon("radar")} 1. افتح البحث</a>
-          <label class="btn" for="d-file">${icon("down")} 3. استيراد الملف<input type="file" id="d-file" accept=".json,.geojson,application/json" hidden></label>
+        <div id="d-import" class="grid import-box" ${framed ? "" : "hidden"}>
+          <div><b>الجمع عن طريق Overpass Turbo</b>
+            <p class="muted" style="margin:4px 0 0">${framed ? "هذي الصفحة على claude.ai ما تقدر تتصل بخادم الخريطة مباشرة. للجمع بضغطة وحدة افتح https://bcr8527-maker.github.io، أو اتبع الخطوات:" : "إذا ما اشتغل الجمع المباشر، تقدر تجمع بهذي الخطوات:"}</p></div>
+          <ol style="margin:0;padding-inline-start:20px;display:grid;gap:4px">
+            <li>اضغط <b>افتح البحث</b>، وانتظر حتى تظهر النتائج على الخريطة.</li>
+            <li>اضغط <b>Export</b> ثم <b>raw OSM data</b>.</li>
+            <li>ارجع هنا واضغط <b>استيراد الملف</b>.</li>
+          </ol>
+          <div class="row">
+            <a class="btn sec" id="d-turbo" href="#" target="_blank" rel="noopener">${icon("radar")} افتح البحث</a>
+            <label class="btn" for="d-file">${icon("down")} استيراد الملف<input type="file" id="d-file" accept=".json,.geojson,application/json" hidden></label>
+          </div>
         </div>
       </div>
     </form>
-    <section class="card"><div class="card-h"><h2>عمليات البحث السابقة</h2></div>
-      <div class="mini-list">${state.searches.slice(0, 10).map((s, i) => `<button class="mini" data-repeat="${i}"><span class="grow">
-        <span class="t">${esc(s.city)}</span><span class="muted small">${s.cats.map(c => CATS[c]?.ar).join("، ")} · ${fmtN(s.found)} نتيجة · ${rel(s.at)}</span>
-        </span><span class="btn ghost sm">إعادة</span></button>`).join("") || `<div class="card-b muted">لم تبحث بعد</div>`}</div></section>
+    <div class="grid">
+      <section class="card" id="d-progress-card" ${job ? "" : "hidden"}><div class="card-h"><h2>التقدم</h2><span class="muted small num" id="d-elapsed"></span></div>
+        <div class="card-b grid" id="d-progress"></div></section>
+      <section class="card"><div class="card-h"><h2>عمليات البحث السابقة</h2></div>
+        <div class="mini-list" id="d-history">${historyList()}</div></section>
+    </div>
   </div>`;
-  $("#d-all").onclick = () => { const b = $$("#discover-form .chip input"), on = !b.every(x => x.checked); b.forEach(x => x.checked = on); };
-  $("#discover-form").onsubmit = runDiscover;
   const syncTurbo = () => {
-    const cats = $$("#discover-form .chip input:checked").map(i => i.value);
-    $("#d-turbo").href = turboLink($("#d-city").value.trim() || "الرياض", cats.length ? cats : Object.keys(CATS));
+    const cats = selectedCats(); const city = $("#d-city").value.trim() || "الرياض";
+    const q = `[out:json][timeout:180];{{geocodeArea:${city}}}->.a;(${(cats.length ? cats : Object.keys(CATS)).flatMap(c => CATS[c].f).map(f => `nwr[${f}][name](area.a);`).join("")});out center tags;`;
+    $("#d-turbo").href = `https://overpass-turbo.eu/?Q=${encodeURIComponent(q)}&R`;
   };
-  $("#discover-form").addEventListener("input", syncTurbo); $("#d-all").addEventListener("click", syncTurbo); syncTurbo();
+  $("#d-all").onclick = () => { const b = $$("#discover-form .chip input"), on = !b.every(x => x.checked); b.forEach(x => x.checked = on); syncTurbo(); };
+  $("#discover-form").addEventListener("input", e => { if(e.target.id === "d-city"){ place = null; $("#d-place").innerHTML = placeChip(); } syncTurbo(); });
+  $("#d-city").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); locate(); } });
+  $("#d-locate").onclick = locate;
+  $("#discover-form").onsubmit = runDiscover;
+  $("#d-cancel").onclick = () => job?.ctl.abort();
   $("#d-file").onchange = importOsmFile;
-  if(job) renderSteps();
+  syncTurbo();
+  if(job) renderProgress();
 }
-function renderSteps(){
-  const el = $("#d-steps"); if(!el || !job) return;
-  el.innerHTML = job.steps.map(s => `<div class="step ${s.st}"><span class="dot"></span>${esc(s.label)}${s.n != null ? ` <span class="muted num">· ${fmtN(s.n)}</span>` : ""}</div>`).join("")
-    + (job.done ? `<div class="row" style="margin-top:8px"><b>${esc(job.summary)}</b>${job.added ? `<button type="button" class="btn sm" data-nav="leads">عرض العملاء</button>` : ""}</div>` : "");
-  const run = $("#d-run"); if(run) run.disabled = !job.done;
+const historyList = () => state.searches.slice(0, 8).map((x, i) => `<button class="mini" data-repeat="${i}"><span class="grow">
+  <span class="t">${esc(x.city)}</span><span class="muted small">${(x.cats || []).map(c => CATS[c]?.ar).filter(Boolean).join("، ")} · ${fmtN(x.found)} نتيجة · ${rel(x.at)}</span>
+  </span><span class="btn ghost sm">إعادة</span></button>`).join("") || `<div class="card-b muted">لم تبحث بعد</div>`;
+const selectedCats = () => $$("#discover-form .chip input:checked").map(i => i.value);
+function placeChip(){
+  if(!place) return `<span class="hint">اكتب المدينة أو الحي واضغط «تحديد»، أو ابدأ الجمع مباشرة ونحدده لك.</span>`;
+  return `<div class="place-chip">${icon("pin")}<span class="grow"><b>${esc(place.short)}</b> <span class="muted small">${esc(KIND_AR[place.kind] || "")}</span>
+    <span class="muted small" style="display:block">${esc(place.label)}</span></span></div>`;
+}
+async function locate(){
+  const q = $("#d-city").value.trim(); if(!q){ $("#d-city").focus(); return null; }
+  const btn = $("#d-locate"); btn.disabled = true; btn.textContent = "جارٍ التحديد…";
+  try{
+    places = await geocode(q);
+    if(!places.length){ $("#d-place").innerHTML = `<span class="hint" style="color:var(--danger)">ما لقيت «${esc(q)}». جرّب كتابته بشكل ثاني أو بالإنجليزي.</span>`; place = null; return null; }
+    place = places[0];
+    $("#d-place").innerHTML = placeChip();
+    const list = $("#d-places");
+    list.hidden = places.length < 2;
+    list.innerHTML = places.length > 1 ? `<span class="hint">مو هذا المقصود؟ اختر:</span>` + places.slice(1).map((p, i) =>
+      `<button type="button" class="place-opt" data-pick="${i + 1}">${esc(p.label)}</button>`).join("") : "";
+    $$("[data-pick]").forEach(b => b.onclick = () => { place = places[+b.dataset.pick]; $("#d-place").innerHTML = placeChip(); list.hidden = true; });
+    return place;
+  }catch(e){
+    $("#d-place").innerHTML = `<span class="hint" style="color:var(--danger)">${esc(e.kind === "offline" ? "ما قدرت أتصل بخدمة تحديد المواقع. استخدم Overpass Turbo تحت" : e.message)}</span>`;
+    if(e.kind === "offline") $("#d-import").hidden = false;
+    return null;
+  }finally{ if($("#d-locate")){ btn.disabled = false; btn.innerHTML = `${icon("pin")} تحديد`; } }
+}
+function renderProgress(){
+  const card = $("#d-progress-card"); if(!card || !job) return;
+  card.hidden = false;
+  const st = k => job.steps[k];
+  const row = (k, label, detail) => `<div class="pstep ${st(k)}"><span class="pdot"></span><span class="grow"><b>${label}</b>${detail ? `<span class="muted small" style="display:block">${detail}</span>` : ""}</span></div>`;
+  $("#d-progress").innerHTML =
+    row("locate", "تحديد الموقع", job.place ? esc(job.place.label) : "") +
+    row("fetch", "جمع الأنشطة من الخريطة", job.fetchNote || "") +
+    row("save", "التقييم والحفظ", job.saved != null ? `${fmtN(job.saved)} نشاط محفوظ` : "") +
+    (job.error ? `<div class="notice" style="border-color:var(--danger)">${esc(job.error)}</div>` : "") +
+    (job.done && !job.error ? resultSummary() : "");
+  if(job.done && !job.error) drawMap();
+}
+function resultSummary(){
+  const r = job.result;
+  const cats = Object.entries(r.byCat).sort((a, b) => b[1] - a[1]);
+  return `<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin:4px 0 0">
+      <div class="kpi card"><span>تم العثور</span><b>${fmtN(r.found)}</b></div>
+      <div class="kpi card"><span>جديد</span><b>${fmtN(r.added)}</b></div>
+      <div class="kpi card"><span>برقم جوال</span><b>${fmtN(r.withPhone)}</b></div></div>
+    <div class="row">${cats.map(([c, n]) => `<span class="tag">${esc(CATS[c]?.ar || c)} <b class="num">${fmtN(n)}</b></span>`).join("")}</div>
+    <div id="d-map" class="map" ${window.claude ? "hidden" : ""}></div>
+    <div class="row">${r.added || r.found ? `<button type="button" class="btn" data-nav="leads">${icon("users")} عرض العملاء</button>` : ""}
+      ${r.found >= r.cap && r.cap ? `<span class="hint">وصلت للحد (${fmtN(r.cap)}). كبّر الحد أو قسّم البحث على الأحياء لنتائج أكثر.</span>` : ""}</div>`;
+}
+let leafletLoading = null;
+function loadLeaflet(){
+  if(window.L) return Promise.resolve();
+  return leafletLoading ??= new Promise((ok, bad) => {
+    const css = Object.assign(document.createElement("link"), {rel:"stylesheet", href:"https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"});
+    const js = Object.assign(document.createElement("script"), {src:"https://unpkg.com/leaflet@1.9.4/dist/leaflet.js", onload:ok, onerror:bad});
+    document.head.append(css, js);
+  });
+}
+async function drawMap(){
+  const el = $("#d-map"); if(!el || el.hidden || el.dataset.ready) return;
+  el.dataset.ready = 1;
+  try{ await loadLeaflet(); }catch(e){ el.hidden = true; return; }
+  const pts = job.result.points; if(!pts.length){ el.hidden = true; return; }
+  const map = L.map(el, {preferCanvas:true, scrollWheelZoom:false});
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
+  const color = s => s >= 55 ? "#c2410c" : s >= 35 ? "#b7791f" : "#8a9590";
+  for(const p of pts) L.circleMarker([p.lat, p.lng], {radius:5, weight:1, color:"#fff", fillColor:color(p.score), fillOpacity:.9}).bindTooltip(`${p.name} · ${p.score}`).addTo(map);
+  map.fitBounds(L.latLngBounds(pts.map(p => [p.lat, p.lng])), {padding:[20, 20]});
 }
 async function runDiscover(ev){
   ev.preventDefault();
   if(job && !job.done) return;
-  const city = $("#d-city").value.trim();
-  const cats = $$("#discover-form .chip input:checked").map(i => i.value);
-  const min = +$("#d-min").value || 0;
+  const cats = selectedCats();
+  if(!$("#d-city").value.trim()){ $("#d-city").focus(); return; }
   if(!cats.length){ toast("اختر نوع نشاط واحد على الأقل"); return; }
-  Object.assign(state.settings, {lastCity:city, lastCats:cats});
-  job = {steps:cats.map(c => ({cat:c, label:`${CATS[c].ar} في ${city}`, st:""})), done:false, added:0};
-  renderSteps();
-  const seen = new Set();
-  for(const step of job.steps){
-    step.st = "run"; renderSteps();
-    try{
-      const els = await overpass(areaQuery(city, CATS[step.cat].f));
-      let n = 0;
-      for(const el of els){
-        const l = toLead(el, step.cat);
-        if(!l || l.score < min) continue;
-        n++; seen.add(l.id);
-        if(upsertLead(l)) job.added++;
-      }
-      step.st = "done"; step.n = n;
-    }catch(e){
-      step.st = "err"; step.label += ` — ${e.message}`;
-      if(e.offline){ job.steps.filter(s => !s.st).forEach(s => { s.st = "err"; }); $("#d-import").hidden = false; break; }
+  const cap = +$("#d-cap").value, min = +$("#d-min").value || 0, onlyPhone = $("#d-phone").checked;
+  Object.assign(state.settings, {lastCity:$("#d-city").value.trim(), lastCats:cats, lastCap:cap, lastMin:min, lastPhone:onlyPhone});
+  job = {steps:{locate:"run", fetch:"", save:""}, ctl:new AbortController(), started:Date.now(), done:false};
+  $("#d-run").disabled = true; $("#d-cancel").hidden = false; renderProgress();
+  const tick = setInterval(() => { const el = $("#d-elapsed"); if(el && job && !job.done) el.textContent = `${Math.round((Date.now() - job.started) / 1000)} ث`; }, 500);
+  try{
+    job.place = place || await locate();
+    if(!job.place) throw new Error($("#d-place")?.textContent.trim() || "ما قدرت أحدد الموقع");
+    job.steps.locate = "done"; job.steps.fetch = "run"; renderProgress();
+    const mirrors = ["الخادم الرئيسي", "خادم احتياطي 1", "خادم احتياطي 2"];
+    const els = await overpass(buildQuery(job.place, cats, cap), job.ctl.signal, i => { job.fetchNote = `${mirrors[i]}… قد ياخذ دقيقة للمدن الكبيرة`; renderProgress(); });
+    job.steps.fetch = "done"; job.fetchNote = `${fmtN(els.length)} نتيجة`; job.steps.save = "run"; renderProgress();
+    const r = {found:0, added:0, withPhone:0, byCat:{}, points:[], cap};
+    for(const el of els){
+      const cat = classify(el.tags); if(!cat) continue;
+      const l = toLead(el, cat); if(!l || l.score < min || (onlyPhone && !l.wa)) continue;
+      r.found++; if(l.wa) r.withPhone++; r.byCat[cat] = (r.byCat[cat] || 0) + 1;
+      if(upsertLead(l)) r.added++;
+      if(l.lat != null) r.points.push({lat:l.lat, lng:l.lng, name:l.name, score:l.score});
     }
-    save(); renderSteps();
-    await new Promise(r => setTimeout(r, 1200));
+    job.result = r; job.saved = r.found; job.steps.save = "done";
+    state.settings.lastPlace = job.place;
+    state.searches.unshift({city:job.place.short, place:job.place, cats, found:r.found, at:nowIso()}); state.searches = state.searches.slice(0, 30);
+    save(); refreshChrome();
+    toast(r.found ? `لقيت ${fmtN(r.found)} نشاط، منها ${fmtN(r.added)} جديد` : "ما لقيت أنشطة بهذي الشروط");
+  }catch(e){
+    const k = Object.keys(job.steps).find(k => job.steps[k] === "run"); if(k) job.steps[k] = "err";
+    job.error = e.kind === "cancel" ? "تم إيقاف البحث" : e.message;
+    if(e.offline) $("#d-import").hidden = false;
+  }finally{
+    clearInterval(tick); job.done = true;
+    const el = $("#d-elapsed"); if(el) el.textContent = `${Math.round((Date.now() - job.started) / 1000)} ث`;
+    if($("#d-run")){ $("#d-run").disabled = false; $("#d-cancel").hidden = true; }
+    if($("#d-history")) $("#d-history").innerHTML = historyList();
+    renderProgress();
   }
-  job.done = true;
-  job.summary = job.steps.some(s => s.st === "err") && !seen.size ? "ما اكتمل الجمع. جرّب مرة ثانية أو استخدم Overpass Turbo تحت" : seen.size ? `لقيت ${fmtN(seen.size)} نشاط، منها ${fmtN(job.added)} جديد` : `ما لقيت نتائج. تأكد من اسم «${city}» أو جرّبه بالإنجليزي`;
-  state.searches.unshift({city, cats, found:seen.size, at:nowIso()}); state.searches = state.searches.slice(0, 30);
-  save(); renderSteps(); refreshChrome();
-  toast(job.summary);
 }
 
 async function importOsmFile(e){
@@ -720,11 +865,11 @@ async function importOsmFile(e){
   let els;
   try{ const data = JSON.parse(await file.text()); els = data.elements || (data.features || []).map(f => ({type:(f.id || "").split("/")[0] || "node", id:(f.id || "").split("/")[1] || f.properties?.["@id"], tags:f.properties || {}, lat:f.geometry?.coordinates?.[1], lon:f.geometry?.coordinates?.[0]})); }
   catch(err){ toast("الملف غير صالح. اختر ملف JSON من Export ← raw OSM data"); return; }
-  const min = +$("#d-min")?.value || 0;
+  const min = +$("#d-min")?.value || 0, onlyPhone = $("#d-phone")?.checked;
   let found = 0, added = 0;
   for(const el of els){
     const cat = classify(el.tags); if(!cat) continue;
-    const l = toLead(el, cat); if(!l || l.score < min) continue;
+    const l = toLead(el, cat); if(!l || l.score < min || (onlyPhone && !l.wa)) continue;
     found++; if(upsertLead(l)) added++;
   }
   const city = $("#d-city")?.value.trim() || "";
@@ -998,10 +1143,12 @@ document.addEventListener("click", e => {
   if(e.target.closest("[data-close]")){ closeDrawer(); return; }
   const rep = e.target.closest("[data-repeat]");
   if(rep){
-    const s = state.searches[+rep.dataset.repeat]; $("#d-city").value = s.city;
-    $$("#discover-form .chip input").forEach(i => i.checked = s.cats.includes(i.value));
+    const x = state.searches[+rep.dataset.repeat];
+    $("#d-city").value = x.city; place = x.place || null; $("#d-place").innerHTML = placeChip();
+    $$("#discover-form .chip input").forEach(i => i.checked = (x.cats || []).includes(i.value));
     $("#discover-form").dispatchEvent(new Event("input"));
-    if(window.claude) toast("جهزت البحث. اضغط «1. افتح البحث»"); else $("#discover-form").requestSubmit();
+    if(x.place){ place = x.place; $("#d-place").innerHTML = placeChip(); }
+    if(window.claude) toast("جهزت البحث. اضغط «افتح البحث»"); else $("#discover-form").requestSubmit();
     return;
   }
   // The WhatsApp link opens in a new tab; the drawer opens alongside so the send can be confirmed.
