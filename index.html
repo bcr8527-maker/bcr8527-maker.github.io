@@ -1,0 +1,1042 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>رادار العملاء</title>
+<script>document.documentElement.dir="rtl";document.documentElement.lang="ar";</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: CRM app shell — fixed sidebar (bottom bar on phones), top bar with global search, one content area; detail opens in a side drawer */
+:root{
+  --bg:#f4f6f5; --surface:#ffffff; --raised:#fbfcfb; --sunk:#eef1ef; --fg:#141b18; --fg-2:#3c4743; --muted:#6a7671; --line:#dfe5e2; --line-2:#cbd4cf;
+  --accent:#0a6b57; --accent-2:#0d8a70; --accent-soft:#e3f1ec; --on-accent:#ffffff; --wa:#1fa855;
+  --st-new:#64748b; --st-contacted:#b7791f; --st-engaged:#2563eb; --st-interested:#7c3aed; --st-meeting:#0891b2; --st-won:#15803d; --st-lost:#9ca3af; --st-opted_out:#b42318;
+  --hot:#c2410c; --warm:#b7791f; --cool:#8a9590; --danger:#b42318;
+  --shadow:0 1px 2px rgba(16,24,20,.06),0 4px 16px rgba(16,24,20,.06);
+  --font:"IBM Plex Sans Arabic",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;
+  --r:10px; --side:232px; --top:60px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1210; --surface:#141a18; --raised:#18201d; --sunk:#1c2522; --fg:#e7ece9; --fg-2:#c3ccc8; --muted:#8e9a95; --line:#26302c; --line-2:#34403b;
+  --accent:#3bb896; --accent-2:#53cba9; --accent-soft:#16302a; --on-accent:#05110d; --wa:#2fc56a;
+  --st-new:#94a3b8; --st-contacted:#e0b04f; --st-engaged:#60a5fa; --st-interested:#a78bfa; --st-meeting:#22d3ee; --st-won:#4ade80; --st-lost:#6b7280; --st-opted_out:#f2786d;
+  --hot:#f08a5d; --warm:#e0b04f; --cool:#7c8a84; --danger:#f2786d; --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1210; --surface:#141a18; --raised:#18201d; --sunk:#1c2522; --fg:#e7ece9; --fg-2:#c3ccc8; --muted:#8e9a95; --line:#26302c; --line-2:#34403b;
+  --accent:#3bb896; --accent-2:#53cba9; --accent-soft:#16302a; --on-accent:#05110d; --wa:#2fc56a;
+  --st-new:#94a3b8; --st-contacted:#e0b04f; --st-engaged:#60a5fa; --st-interested:#a78bfa; --st-meeting:#22d3ee; --st-won:#4ade80; --st-lost:#6b7280; --st-opted_out:#f2786d;
+  --hot:#f08a5d; --warm:#e0b04f; --cool:#7c8a84; --danger:#f2786d; --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font:14px/1.6 var(--font);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- shell ---------- */
+.side{position:fixed;inset-block:0;inset-inline-start:0;width:var(--side);background:var(--surface);border-inline-end:1px solid var(--line);display:flex;flex-direction:column;padding:14px 12px;gap:4px;z-index:20}
+.logo{display:flex;align-items:center;gap:10px;padding:6px 10px 18px;font-weight:700;font-size:17px}
+.logo-mark{width:30px;height:30px;border-radius:8px;background:var(--accent);display:grid;place-items:center;color:var(--on-accent)}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;border:0;background:none;color:var(--fg-2);cursor:pointer;text-align:start;width:100%;font-weight:500}
+.nav-btn:hover{background:var(--sunk)}
+.nav-btn[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+.nav-btn .badge{margin-inline-start:auto}
+.side-foot{margin-top:auto;padding:10px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;display:grid;gap:8px}
+.meter{height:4px;border-radius:2px;background:var(--sunk);overflow:hidden}.meter>i{display:block;height:100%;background:var(--accent)}
+.app{margin-inline-start:var(--side);min-height:100%}
+.top{position:sticky;top:0;z-index:15;height:var(--top);background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding-inline:max(24px,env(safe-area-inset-left,0px)) max(24px,env(safe-area-inset-right,0px))}
+.top h1{font-size:18px;font-weight:700;margin:0;white-space:nowrap}
+.search{margin-inline-start:auto;position:relative;width:min(360px,40vw)}
+.search input{width:100%;padding:8px 36px 8px 44px;border-radius:8px;border:1px solid var(--line);background:var(--surface)}
+.search svg{position:absolute;inset-inline-start:10px;top:50%;translate:0 -50%;color:var(--muted)}
+.search kbd{position:absolute;inset-inline-end:8px;top:50%;translate:0 -50%;font:12px var(--font);color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 6px;background:var(--sunk)}
+.content{padding:24px max(24px,env(safe-area-inset-right,0px)) 48px max(24px,env(safe-area-inset-left,0px));max-width:1320px}
+
+/* ---------- components ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:8px;border:1px solid transparent;padding:8px 14px;font-weight:600;cursor:pointer;background:var(--accent);color:var(--on-accent);text-decoration:none;white-space:nowrap;line-height:1.4}
+.btn:hover{background:var(--accent-2)}
+.btn.sec{background:var(--surface);color:var(--fg);border-color:var(--line-2)}.btn.sec:hover{background:var(--sunk)}
+.btn.ghost{background:none;color:var(--fg-2)}.btn.ghost:hover{background:var(--sunk)}
+.btn.wa{background:var(--wa);color:#fff}
+.btn.danger{background:none;color:var(--danger);border-color:color-mix(in srgb,var(--danger) 45%,transparent)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.card-h h2{font-size:15px;margin:0;font-weight:600}
+.card-b{padding:16px}
+.badge{display:inline-flex;align-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;justify-content:center}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:2px 10px 2px 8px;border-radius:999px;background:color-mix(in srgb,var(--c) 13%,transparent);color:var(--c);white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c)}
+.score{display:inline-grid;place-items:center;min-width:38px;height:26px;padding:0 6px;border-radius:6px;font-weight:700;font-variant-numeric:tabular-nums;font-size:13px;color:var(--c);background:color-mix(in srgb,var(--c) 12%,transparent)}
+.tag{display:inline-block;font-size:12px;background:var(--sunk);color:var(--fg-2);border-radius:6px;padding:2px 8px}
+.muted{color:var(--muted)} .small{font-size:12px}
+.field{display:grid;gap:6px;font-weight:500;font-size:13px;color:var(--fg-2)}
+.field input,.field select,.field textarea,.input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface);color:var(--fg);font-weight:400}
+textarea{resize:vertical;line-height:1.7}
+.hint{font-weight:400;color:var(--muted);font-size:12px}
+.grid{display:grid;gap:16px}
+.cols-2{display:grid;gap:16px;grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+.fields{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.spread{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.empty{display:grid;justify-items:center;gap:10px;text-align:center;color:var(--muted);padding:48px 16px}
+.empty svg.i{width:36px;height:36px;color:var(--line-2)}
+.empty b{color:var(--fg);font-size:15px}
+
+/* ---------- dashboard ---------- */
+.kpis{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:16px}
+.kpi{padding:16px}
+.kpi span{color:var(--muted);font-size:13px;font-weight:500}
+.kpi b{display:block;font-size:28px;font-weight:700;line-height:1.3;font-variant-numeric:tabular-nums}
+.kpi small{color:var(--muted);font-size:12px}
+.funnel{display:grid;gap:10px}
+.fun-row{display:grid;grid-template-columns:110px 1fr 44px;gap:10px;align-items:center;font-size:13px}
+.fun-bar{height:22px;background:var(--sunk);border-radius:5px;overflow:hidden}
+.fun-bar i{display:block;height:100%;background:var(--c);border-radius:5px;min-width:2px}
+.mini-list{display:grid}
+.mini{display:flex;gap:10px;align-items:center;padding:10px 16px;border-top:1px solid var(--line);cursor:pointer;background:none;border-inline:0;border-bottom:0;text-align:start;width:100%}
+.mini:first-child{border-top:0}.mini:hover{background:var(--raised)}
+.mini .grow{flex:1;min-width:0;display:grid}.mini .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- table ---------- */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.toolbar select,.toolbar input[type=search]{padding:7px 10px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface)}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:6px 12px;cursor:pointer;color:var(--fg-2)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:start;font-weight:600;color:var(--muted);font-size:12px;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--raised)}
+th[data-sort]{cursor:pointer}th[data-sort]:hover{color:var(--fg)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr{cursor:pointer}tbody tr:hover{background:var(--raised)}
+tbody tr.sel{background:var(--accent-soft)}
+td .t{font-weight:600}
+.chk{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.bulk{display:flex;gap:10px;align-items:center;padding:10px 16px;background:var(--accent-soft);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.pager{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;gap:10px;flex-wrap:wrap}
+
+/* ---------- kanban ---------- */
+.board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(250px,1fr);gap:12px;overflow-x:auto;padding-bottom:8px;align-items:start}
+.col{background:var(--sunk);border-radius:var(--r);display:flex;flex-direction:column;max-height:calc(100vh - 170px);border:2px solid transparent}
+.col.over{border-color:var(--accent)}
+.col-h{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 8px;font-weight:600}
+.col-b{display:grid;gap:8px;padding:4px 8px 10px;overflow-y:auto;min-height:60px;align-content:start}
+.kcard{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:grab;display:grid;gap:6px;box-shadow:0 1px 1px rgba(0,0,0,.03)}
+.kcard:active{cursor:grabbing}.kcard.drag{opacity:.4}
+.kcard .t{font-weight:600}
+
+/* ---------- drawer ---------- */
+.scrim{position:fixed;inset:0;background:rgba(10,16,13,.35);z-index:40}
+.drawer{position:fixed;inset-block:0;inset-inline-end:0;width:min(560px,100%);background:var(--surface);z-index:41;display:flex;flex-direction:column;box-shadow:var(--shadow);border-inline-start:1px solid var(--line)}
+.dr-h{padding:16px 20px;border-bottom:1px solid var(--line);display:grid;gap:8px;padding-top:max(16px,env(safe-area-inset-top,0px))}
+.dr-h h2{margin:0;font-size:19px;text-wrap:balance}
+.dr-b{overflow-y:auto;padding:16px 20px 32px;display:grid;gap:18px;align-content:start}
+.dr-sec h3{font-size:12px;letter-spacing:.04em;color:var(--muted);margin:0 0 8px;font-weight:600}
+.props{display:grid;grid-template-columns:110px 1fr;gap:8px 12px;font-size:13px;margin:0}
+.props dt{color:var(--muted)}.props dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.timeline{display:grid;border-inline-start:2px solid var(--line);margin-inline-start:6px}
+.ev{position:relative;padding:0 18px 14px}
+.ev::before{content:"";position:absolute;inset-inline-start:-7px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--c,var(--line-2))}
+.ev .body{white-space:pre-wrap;background:var(--raised);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:4px;font-size:13px}
+.ev time{color:var(--muted);font-size:12px}
+
+/* ---------- toast ---------- */
+.toasts{position:fixed;bottom:max(20px,env(safe-area-inset-bottom,0px));left:50%;translate:-50% 0;display:grid;gap:8px;z-index:60;width:max-content;max-width:calc(100% - 32px)}
+.toast{background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:8px;box-shadow:var(--shadow);font-weight:500}
+
+/* ---------- discover ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);border-radius:999px;padding:6px 12px;cursor:pointer;background:var(--surface);font-weight:500;font-size:13px;color:var(--fg-2)}
+.chip input{margin:0;accent-color:var(--accent)}
+.chip:has(input:checked){border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.steps{display:grid;gap:6px;font-size:13px}
+.step{display:flex;gap:8px;align-items:center}
+.step .dot{width:8px;height:8px;border-radius:50%;background:var(--line-2);flex:none}
+.step.done .dot{background:var(--accent)}.step.run .dot{background:var(--warm)}.step.err .dot{background:var(--danger)}
+
+/* ---------- responsive ---------- */
+@media (max-width:1000px){.cols-2{grid-template-columns:1fr}}
+@media (max-width:860px){
+  :root{--side:0px}
+  .side{inset-block:auto 0;inset-inline:0;width:auto;height:auto;flex-direction:row;padding:6px max(8px,env(safe-area-inset-left,0px)) max(6px,env(safe-area-inset-bottom,0px));border-inline-end:0;border-top:1px solid var(--line);gap:2px;justify-content:space-around}
+  .logo,.side-foot{display:none}
+  .nav-btn{flex-direction:column;gap:2px;font-size:11px;padding:6px 4px;align-items:center;flex:1;position:relative}
+  .nav-btn .badge{position:absolute;top:0;inset-inline-end:18%;margin:0}
+  .nav-btn .lbl-long{display:none}
+  .app{padding-bottom:80px}
+  .top{padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
+  .content{padding:16px max(16px,env(safe-area-inset-right,0px)) 32px max(16px,env(safe-area-inset-left,0px))}
+  .search kbd{display:none}
+  .hide-sm{display:none}
+  .toasts{bottom:90px}
+}
+@media (max-width:520px){.kpis{grid-template-columns:1fr 1fr;gap:12px}.kpi:last-child:nth-child(odd){grid-column:1/-1}.search{width:auto;flex:1}.top h1{display:none}.props{grid-template-columns:90px 1fr}.fun-row{grid-template-columns:90px 1fr 36px}}
+@media (prefers-reduced-motion:no-preference){
+  .drawer{animation:slide .18s ease-out}.toast{animation:pop .18s ease-out}
+  @keyframes slide{from{translate:-24px 0}}
+  @keyframes pop{from{translate:0 8px;opacity:0}}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 12l9-8 9 8"/><path d="M5 10v10h14V10"/></symbol>
+  <symbol id="i-radar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12l6-6"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.8c2 .7 3.3 2.5 3.7 5.2"/></symbol>
+  <symbol id="i-board" viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 1112 0v5l2 2H4z"/><path d="M10 21h4"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-wa" viewBox="0 0 24 24"><path d="M4 20l1.3-3.9A8 8 0 1112 20a8 8 0 01-4-1.1z"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11.5A7 7 0 005 9.5C5 14.7 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v12M6 11l6 6 6-6M4 20h16"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 3h6l1-3h5"/></symbol>
+</svg>
+
+<aside class="side" aria-label="القائمة">
+  <div class="logo"><span class="logo-mark"><svg class="i"><use href="#i-radar"/></svg></span>رادار العملاء</div>
+  <button class="nav-btn" data-nav="dashboard"><svg class="i"><use href="#i-home"/></svg><span>الرئيسية</span></button>
+  <button class="nav-btn" data-nav="discover"><svg class="i"><use href="#i-radar"/></svg><span>اكتشاف<span class="lbl-long"> عملاء</span></span></button>
+  <button class="nav-btn" data-nav="leads"><svg class="i"><use href="#i-users"/></svg><span>العملاء</span></button>
+  <button class="nav-btn" data-nav="pipeline"><svg class="i"><use href="#i-board"/></svg><span><span class="lbl-long">خط </span>المبيعات</span></button>
+  <button class="nav-btn" data-nav="tasks"><svg class="i"><use href="#i-bell"/></svg><span>المتابعات</span><span class="badge" id="nav-due" hidden></span></button>
+  <button class="nav-btn" data-nav="settings"><svg class="i"><use href="#i-gear"/></svg><span>الإعدادات</span></button>
+  <div class="side-foot">
+    <div id="foot-local"><div class="spread"><span>مساحة التخزين</span><span class="num" id="usage"></span></div>
+    <div class="meter"><i id="usage-bar" style="width:0"></i></div></div>
+    <div id="foot-cloud" hidden><span id="sync">محفوظ في حسابك ✓</span></div>
+  </div>
+</aside>
+
+<div class="app">
+  <header class="top">
+    <h1 id="page-title">الرئيسية</h1>
+    <div class="search">
+      <svg class="i"><use href="#i-search"/></svg>
+      <input id="global-q" type="search" placeholder="ابحث عن عميل بالاسم أو الرقم" aria-label="بحث عن عميل" autocomplete="off">
+      <kbd>/</kbd>
+    </div>
+  </header>
+  <main class="content" id="view"></main>
+</div>
+
+<div id="drawer-root"></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+"use strict";
+function showFatal(msg){
+  const box = document.getElementById("fatal") || document.body.appendChild(Object.assign(document.createElement("div"), {id:"fatal"}));
+  box.style.cssText = "position:fixed;inset:auto 16px 16px 16px;z-index:99;background:#b42318;color:#fff;padding:12px 16px;border-radius:10px;font:14px/1.6 system-ui,Tahoma,sans-serif;direction:rtl";
+  box.textContent = "صار خطأ في التطبيق، صوّر هذي الرسالة وأرسلها: " + msg;
+}
+window.addEventListener("error", e => showFatal(`${e.message} (${e.lineno}:${e.colno})`));
+window.addEventListener("unhandledrejection", e => showFatal(String(e.reason?.message || e.reason)));
+/* ================= constants ================= */
+const OVERPASS = ["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];
+const CATS = {
+  dentist:{ar:"عيادات أسنان",f:['"amenity"="dentist"','"healthcare"="dentist"'],services:["نظام حجز مواعيد أونلاين","ملفات مرضى إلكترونية","تذكير المواعيد عبر واتساب"]},
+  clinic:{ar:"عيادات ومراكز طبية",f:['"amenity"~"clinic|doctors"','"healthcare"~"clinic|doctor|physiotherapist"'],services:["نظام حجز مواعيد أونلاين","ملفات مرضى إلكترونية","تذكير المواعيد عبر واتساب"]},
+  pharmacy:{ar:"صيدليات",f:['"amenity"="pharmacy"'],services:["متجر إلكتروني وتوصيل","نقاط بيع وإدارة مخزون"]},
+  restaurant:{ar:"مطاعم",f:['"amenity"~"restaurant|fast_food"'],services:["منيو إلكتروني QR","نظام طلبات أونلاين","نقاط بيع وإدارة مخزون"]},
+  cafe:{ar:"مقاهي ومخابز",f:['"amenity"="cafe"','"shop"="bakery"'],services:["منيو إلكتروني QR","برنامج ولاء للعملاء","نقاط بيع"]},
+  salon:{ar:"صالونات وتجميل",f:['"shop"~"beauty|hairdresser|cosmetics"'],services:["نظام حجز مواعيد","برنامج ولاء للعملاء","نقاط بيع"]},
+  gym:{ar:"نوادي رياضية",f:['"leisure"~"fitness_centre|sports_centre"'],services:["نظام اشتراكات وعضويات","تطبيق جوال للأعضاء"]},
+  school:{ar:"مدارس ومعاهد",f:['"amenity"~"school|kindergarten|college|language_school|driving_school"'],services:["نظام إدارة مدرسة","بوابة أولياء أمور","منصة تعليم إلكتروني"]},
+  real_estate:{ar:"مكاتب عقار",f:['"office"="estate_agent"'],services:["موقع عرض عقارات","نظام CRM للعملاء"]},
+  car:{ar:"ورش ومعارض سيارات",f:['"shop"~"car_repair|car|tyres|car_parts"','"amenity"="car_wash"'],services:["نظام حجز وإدارة ورشة","نظام فواتير"]},
+  shop:{ar:"محلات تجارية",f:['"shop"~"clothes|electronics|furniture|jewelry|shoes|mobile_phone|gift|perfumery"'],services:["متجر إلكتروني","نقاط بيع وإدارة مخزون"]},
+  supermarket:{ar:"سوبرماركت وبقالات",f:['"shop"~"supermarket|convenience"'],services:["نقاط بيع وإدارة مخزون","طلبات وتوصيل أونلاين"]},
+  hotel:{ar:"فنادق وشقق",f:['"tourism"~"hotel|guest_house|apartment"'],services:["نظام حجز مباشر","إدارة الغرف"]},
+  office:{ar:"محاماة ومحاسبة",f:['"office"~"lawyer|accountant|insurance|consulting"'],services:["موقع تعريفي احترافي","نظام إدارة عملاء وملفات"]},
+};
+const STAGES = [
+  ["new","جديد"],["contacted","تم التواصل"],["engaged","يتفاعل"],["interested","مهتم"],
+  ["meeting","اجتماع"],["won","تم البيع"],["lost","لم يتم"],["opted_out","ألغى الاشتراك"],
+];
+const STAGE = Object.fromEntries(STAGES);
+const OPEN_STAGES = ["contacted","engaged","interested"];
+const SOCIAL = ["facebook.com","instagram.com","linktr.ee","wa.me","whatsapp.com","twitter.com","x.com","tiktok.com","snapchat.com","t.me","blogspot.","wordpress.com","wixsite.com","business.site","sites.google.com"];
+const MOBILE = {"966":["5"],"971":["5"],"965":["5","6","9"],"974":["3","5","6","7"],"973":["3","6"],"968":["7","9"],"20":["10","11","12","15"],"962":["7"]};
+const OPT_OUT = ["إلغاء","الغاء","توقف","ايقاف","إيقاف","لا ترسل","stop","unsubscribe"];
+const DEFAULTS = {
+  company:"شركتنا للبرمجيات", offer:"استشارة مجانية ودراسة احتياج خلال 15 دقيقة", cc:"966", days:3, max:2,
+  intro:"مرحباً {الاسم} 👋\nمعك فريق {الشركة}.\n{الملاحظة}\nنقدر نساعدكم في: {الخدمات}.\n🎁 {العرض}.\nيناسبك أرسل لك فكرة مختصرة؟\n(إذا ما تبي رسائل منا أرسل: إلغاء)",
+  follow:"مرحباً {الاسم}، حبيت أذكرك بعرضنا: {العرض}. لو يناسبك أرسل لك أمثلة من شغلنا لأنشطة مشابهة؟",
+};
+const KEY = "lead-radar.v2", OLD_KEY = "lead-radar.v1", QUOTA = 5e6; // characters a browser keeps per site
+
+/* ================= store ================= */
+let state = {v:2, settings:{...DEFAULTS}, leads:{}, searches:[]};
+function migrate(s){
+  // v1 kept messages in `msgs`; v2 keeps one activity timeline per lead.
+  for(const l of Object.values(s.leads || {})){
+    if(!l.activity){
+      l.activity = [{type:"created", at:l.added || new Date().toISOString()}];
+      for(const m of l.msgs || []) l.activity.push({type:m.dir === "in" ? "in" : "out", text:m.text, at:m.at});
+      delete l.msgs;
+    }
+    l.notes ??= ""; l.followups ??= 0;
+  }
+  return {v:2, settings:{...DEFAULTS, ...s.settings}, leads:s.leads || {}, searches:s.searches || []};
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY) || localStorage.getItem(OLD_KEY);
+    if(raw) state = migrate(JSON.parse(raw));
+  }catch(e){}
+}
+// Two backends: the browser's localStorage when opened as a file, and the
+// viewer's private documents (one per lead) when opened on claude.ai.
+const cloud = {col:null, cache:new Map(), flushing:false, again:false};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const docId = id => String(id).replace(/[^A-Za-z0-9_\-.~:@+]/g, "_");
+async function initStore(){
+  if(window.claude?.use){
+    try{
+      const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+      const uid = user ? await user.id() : null;
+      if(db && uid){
+        cloud.col = db.collection("data/users/" + uid);
+        await Promise.race([cloudLoad(), sleep(15000).then(() => { throw new Error("timeout"); })]);
+        return;
+      }
+    }catch(e){
+      cloud.col = null; cloud.cache.clear();
+      setTimeout(() => toast("ما قدرت أوصل لحفظ الحساب، فالبيانات بتنحفظ في هذا المتصفح"), 500);
+    }
+  }
+  load();
+}
+async function cloudLoad(){
+  const meta = await cloud.col.doc("_meta").get();
+  const loaded = {settings:{}, searches:[], leads:{}};
+  if(meta.exists){ const m = meta.data(); loaded.settings = m.settings || {}; loaded.searches = m.searches || []; }
+  let last = "";
+  for(;;){
+    const snap = await cloud.col.where("k", ">", last).orderBy("k").limit(1000).get();
+    for(const d of snap.docs){
+      const {k, ...l} = d.data();
+      loaded.leads[l.id] = l; cloud.cache.set(d.id, JSON.stringify(l)); last = k;
+    }
+    if(snap.size < 1000) break;
+  }
+  state = migrate(loaded);
+  cloud.cache.set("_meta", JSON.stringify({settings:state.settings, searches:state.searches}));
+}
+async function writeDoc(id, data, attempt = 0){
+  try{ data === null ? await cloud.col.doc(id).delete() : await cloud.col.doc(id).set(data); return true; }
+  catch(e){
+    if(["resource_exhausted","unavailable"].includes(e?.code) && attempt < 5){ await sleep(700 * 2 ** attempt + Math.random() * 400); return writeDoc(id, data, attempt + 1); }
+    if(e?.code === "quota_exceeded") toast("امتلأت مساحة الحفظ. احذف عملاء غير مهمين أو صدّر نسخة احتياطية.");
+    else if(e?.code === "invalid_argument") toast("ما قدرت أحفظ هذا التعديل في حسابك.");
+    return false;
+  }
+}
+async function flush(){
+  if(cloud.flushing){ cloud.again = true; return; }
+  cloud.flushing = true;
+  do{
+    cloud.again = false;
+    const jobs = [], seen = new Set(["_meta"]);
+    const metaStr = JSON.stringify({settings:state.settings, searches:state.searches});
+    if(cloud.cache.get("_meta") !== metaStr) jobs.push(["_meta", JSON.parse(metaStr), metaStr]);
+    for(const l of leads()){
+      const id = docId(l.id), str = JSON.stringify(l); seen.add(id);
+      if(cloud.cache.get(id) !== str) jobs.push([id, {...JSON.parse(str), k:id}, str]);
+    }
+    for(const id of cloud.cache.keys()) if(!seen.has(id)) jobs.push([id, null, null]);
+    let next = 0, left = jobs.length; setSync(left);
+    const worker = async () => {
+      while(next < jobs.length){
+        const [id, data, str] = jobs[next++];
+        if(await writeDoc(id, data)) str === null ? cloud.cache.delete(id) : cloud.cache.set(id, str);
+        setSync(--left);
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+  }while(cloud.again);
+  cloud.flushing = false; setSync(0);
+}
+function setSync(n){
+  const el = $("#sync"); if(el) el.textContent = n ? `جارٍ الحفظ… (${fmtN(n)})` : "محفوظ في حسابك ✓";
+}
+let saveTimer, savePending = false;
+function save(){
+  clearTimeout(saveTimer); savePending = true;
+  saveTimer = setTimeout(() => {
+    savePending = false;
+    if(cloud.col){ flush(); return; }
+    try{ const raw = JSON.stringify(state); localStorage.setItem(KEY, raw); updateUsage(raw.length); }
+    catch(e){ toast("التخزين ممتلئ. صدّر نسخة احتياطية واحذف العملاء غير المهمين."); }
+  }, 300);
+}
+window.addEventListener("beforeunload", e => { if(cloud.col && (cloud.flushing || savePending)) e.preventDefault(); });
+const S = () => state.settings;
+const leads = () => Object.values(state.leads);
+
+/* ================= helpers ================= */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const icon = n => `<svg class="i"><use href="#i-${n}"/></svg>`;
+const nowIso = () => new Date().toISOString();
+const addDays = d => new Date(Date.now() + d * 864e5).toISOString();
+const fmtN = n => new Intl.NumberFormat("en-US").format(n);
+function fmtDate(iso, withTime = true){
+  try{ return new Date(iso).toLocaleString("ar-u-nu-latn", withTime ? {dateStyle:"medium", timeStyle:"short"} : {dateStyle:"medium"}); }catch(e){ return iso; }
+}
+function rel(iso){
+  if(!iso) return "";
+  const d = (Date.now() - Date.parse(iso)) / 1000, r = new Intl.RelativeTimeFormat("ar-u-nu-latn", {numeric:"auto"});
+  if(Math.abs(d) < 3600) return r.format(-Math.round(d / 60), "minute");
+  if(Math.abs(d) < 86400) return r.format(-Math.round(d / 3600), "hour");
+  return r.format(-Math.round(d / 86400), "day");
+}
+function toast(text){
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = text;
+  const box = $("#toasts"); box.append(t);
+  while(box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => t.remove(), 3200);
+}
+const stagePill = s => `<span class="pill" style="--c:var(--st-${s})">${STAGE[s]}</span>`;
+const scoreColor = s => s >= 55 ? "var(--hot)" : s >= 35 ? "var(--warm)" : "var(--cool)";
+const scoreBadge = s => `<span class="score" style="--c:${scoreColor(s)}" title="${s >= 55 ? "فرصة قوية" : s >= 35 ? "محتمل" : "ضعيف"}">${s}</span>`;
+const waLink = (phone, text) => `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+const safeUrl = u => { u = String(u || "").trim(); if(/^www\./i.test(u)) u = "https://" + u; return /^https?:\/\//i.test(u) ? u : ""; };
+const mapsLink = l => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l.name)}%20${l.lat},${l.lng}`;
+const empty = (ic, title, text, action = "") => `<div class="empty">${icon(ic)}<b>${title}</b><span>${text}</span>${action}</div>`;
+
+function normalizePhone(raw){
+  if(!raw) return null;
+  raw = String(raw).split(/[;,]/)[0].trim();
+  let d = raw.replace(/\D/g, "");
+  if(d.startsWith("00")) d = d.slice(2);
+  else if(!raw.startsWith("+") && d.startsWith("0")) d = S().cc + d.slice(1);
+  else if(!raw.startsWith("+") && d.length <= 10 && !Object.keys(MOBILE).some(c => d.startsWith(c))) d = S().cc + d;
+  for(const [code, pre] of Object.entries(MOBILE)){
+    if(d.startsWith(code)) return pre.some(p => d.slice(code.length).startsWith(p)) ? d : null;
+  }
+  return d.length >= 8 ? d : null;
+}
+
+/* ================= domain ================= */
+function scoreLead(l){
+  let score = 0; const reasons = [], services = [];
+  const site = (l.website || "").toLowerCase();
+  if(!site){ score += 35; reasons.push("لا يوجد موقع إلكتروني"); services.push("موقع إلكتروني احترافي"); }
+  else if(SOCIAL.some(s => site.includes(s))){ score += 25; reasons.push("يعتمد على حسابات التواصل بدل موقع خاص"); services.push("موقع إلكتروني خاص"); }
+  else if(site.startsWith("http://")){ score += 8; reasons.push("الموقع بدون HTTPS"); }
+  const cat = CATS[l.cat];
+  if(cat){ score += 15; cat.services.forEach(s => services.includes(s) || services.push(s)); }
+  if(!l.hours){ score += 5; reasons.push("ساعات العمل غير منشورة"); }
+  if(!l.email && !l.website) score += 5;
+  if(l.brand){ score -= 25; reasons.push("فرع لعلامة تجارية كبيرة"); }
+  if(!l.wa){ score = Math.round(score * 0.5); reasons.push("لا يوجد رقم جوال للتواصل عبر واتساب"); }
+  return {score:Math.max(0, Math.min(100, score)), reasons, services};
+}
+function observation(l){
+  const r = l.reasons || [];
+  if(r.includes("لا يوجد موقع إلكتروني")) return "لاحظنا إن ما فيه موقع إلكتروني باسمكم، وكثير من العملاء يبحثون في جوجل قبل ما يزورون.";
+  if(r.includes("يعتمد على حسابات التواصل بدل موقع خاص")) return "لاحظنا إنكم تعتمدون على حسابات التواصل بدل موقع خاص فيكم.";
+  if(r.includes("الموقع بدون HTTPS")) return "لاحظنا إن موقعكم يظهر للزوار كموقع غير آمن، وهذا يقلل الثقة.";
+  return "نشوف إن عندكم فرصة كبيرة للنمو بالحلول الرقمية.";
+}
+function fill(tpl, l){
+  return tpl.replaceAll("{الاسم}", l.name).replaceAll("{الشركة}", S().company).replaceAll("{العرض}", S().offer)
+    .replaceAll("{الملاحظة}", observation(l)).replaceAll("{الخدمات}", (l.services || []).slice(0, 3).join("، ") || "حلول برمجية تناسب نشاطكم");
+}
+const nextMessage = l => fill(l.stage === "new" ? S().intro : S().follow, l);
+const isDue = l => !!(l.nextAt && Date.parse(l.nextAt) <= Date.now() && l.wa && OPEN_STAGES.includes(l.stage) && l.followups < S().max);
+function log(l, type, text){ l.activity.push({type, text, at:nowIso()}); l.updated = nowIso(); }
+function setStage(l, stage){
+  if(l.stage === stage) return;
+  log(l, "stage", `${STAGE[l.stage]} ← ${STAGE[stage]}`);
+  l.stage = stage;
+  if(["won","lost","opted_out","meeting"].includes(stage)) l.nextAt = null;
+  else if(OPEN_STAGES.includes(stage) && !l.nextAt) l.nextAt = addDays(S().days);
+}
+function recordSent(l, text){
+  const first = l.stage === "new";
+  log(l, "out", text);
+  if(first){ setStage(l, "contacted"); l.followups = 0; l.nextAt = addDays(S().days); }
+  else { l.followups++; l.nextAt = l.followups < S().max ? addDays(S().days) : null; if(!l.nextAt && l.stage === "contacted") setStage(l, "lost"); }
+}
+function recordReply(l, text){
+  log(l, "in", text);
+  const low = text.toLowerCase();
+  if(OPT_OUT.some(w => low.includes(w)) && low.length < 40){ setStage(l, "opted_out"); return "تم إيقاف التواصل مع العميل"; }
+  if(l.stage === "contacted") setStage(l, "engaged");
+  l.followups = 0; l.nextAt = addDays(S().days);
+  return "تم حفظ الرد";
+}
+
+/* ================= data source ================= */
+function areaQuery(city, filters){
+  const name = city.replace(/["\\]/g, "");
+  return `[out:json][timeout:120];area[~"^name(:(ar|en))?$"~"^${name}$",i]->.a;(${filters.map(f => `nwr[${f}](area.a);`).join("")});out center tags;`;
+}
+async function overpass(query){
+  let last;
+  for(const url of OVERPASS){
+    try{
+      const res = await fetch(url, {method:"POST", body:new URLSearchParams({data:query})});
+      if(res.ok) return (await res.json()).elements || [];
+      last = res.status;
+      if(res.status === 429) await new Promise(r => setTimeout(r, 5000));
+    }catch(e){ last = "offline"; }
+  }
+  const err = new Error(last === 429 ? "خادم الخريطة مشغول، جرّب بعد دقيقة" : last === "offline" ? "ما قدرت أتصل بخادم الخريطة من هنا. استخدم Overpass Turbo تحت" : "خادم الخريطة رجّع خطأ، جرّب بعد دقيقة");
+  err.offline = last === "offline";
+  throw err;
+}
+// Compile category filters (e.g. "amenity"~"clinic|doctors") so imported elements can be sorted into categories.
+const MATCHERS = Object.entries(CATS).map(([k, c]) => [k, c.f.map(f => {
+  const m = f.match(/^"([^"]+)"(=|~)"([^"]+)"$/);
+  return m[2] === "=" ? t => t[m[1]] === m[3] : (re => t => t[m[1]] != null && re.test(t[m[1]]))(new RegExp(m[3]));
+})]);
+const classify = tags => (MATCHERS.find(([, fs]) => fs.some(f => f(tags || {}))) || [])[0];
+function upsertLead(l){
+  const old = state.leads[l.id];
+  if(old){ Object.assign(old, {phone:l.phone, wa:l.wa, website:l.website, email:l.email, hours:l.hours, address:l.address, lat:l.lat, lng:l.lng}); return false; }
+  state.leads[l.id] = {...l, stage:"new", activity:[{type:"created", at:nowIso()}], notes:"", followups:0, nextAt:null, added:nowIso()};
+  return true;
+}
+function turboLink(city, cats){
+  const q = areaQuery(city, cats.flatMap(c => CATS[c].f)).replace("[timeout:120]", "[timeout:180]");
+  return `https://overpass-turbo.eu/?Q=${encodeURIComponent(q)}&R`;
+}
+function toLead(el, cat){
+  const t = el.tags || {};
+  const name = t["name:ar"] || t.name || t["name:en"];
+  if(!name) return null;
+  const phone = (t["contact:whatsapp"] || t["contact:mobile"] || t.mobile || t.phone || t["contact:phone"] || "").split(";")[0].trim();
+  const l = {
+    id:`${el.type}/${el.id}`, name, cat, phone,
+    website:t.website || t["contact:website"] || t.url || t["contact:instagram"] || t["contact:facebook"] || "",
+    email:t.email || t["contact:email"] || "", hours:t.opening_hours || "", brand:t.brand || "",
+    address:[t["addr:street"], t["addr:housenumber"], t["addr:district"] || t["addr:suburb"], t["addr:city"]].filter(Boolean).join("، "),
+    lat:el.lat ?? el.center?.lat, lng:el.lon ?? el.center?.lon,
+  };
+  l.wa = normalizePhone(phone);
+  return Object.assign(l, scoreLead(l));
+}
+
+/* ================= router ================= */
+const VIEWS = {
+  dashboard:["الرئيسية", renderDashboard], discover:["اكتشاف عملاء", renderDiscover], leads:["العملاء", renderLeads],
+  pipeline:["خط المبيعات", renderPipeline], tasks:["المتابعات", renderTasks], settings:["الإعدادات", renderSettings],
+};
+let current = "dashboard";
+function go(view, opts = {}){
+  current = VIEWS[view] ? view : "dashboard";
+  try{ if(location.hash !== "#" + current) history.replaceState(null, "", "#" + current); }catch(e){}
+  $$(".nav-btn").forEach(b => b.dataset.nav === current ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  $("#page-title").textContent = VIEWS[current][0];
+  VIEWS[current][1](opts);
+  if(!opts.keepScroll) window.scrollTo(0, 0);
+  refreshChrome();
+}
+function rerender(){ VIEWS[current][1]({keepScroll:true}); refreshChrome(); if(openId) renderDrawer(); }
+function refreshChrome(){
+  const due = leads().filter(isDue).length;
+  $("#nav-due").hidden = !due; $("#nav-due").textContent = due;
+}
+function updateUsage(bytes){
+  try{ bytes ??= (localStorage.getItem(KEY) || "").length; }catch(e){ bytes = 0; }
+  const pct = Math.min(100, bytes / QUOTA * 100);
+  $("#usage").textContent = pct < 1 ? "أقل من 1٪" : `${Math.round(pct)}٪`;
+  $("#usage-bar").style.width = pct + "%";
+}
+
+/* ================= views: dashboard ================= */
+function renderDashboard(){
+  const ls = leads();
+  if(!ls.length){
+    $("#view").innerHTML = `<div class="card">${empty("radar", "ابدأ باكتشاف أول عملائك",
+      "اختر مدينة ونوع النشاط، والنظام يجمع الأنشطة من الخريطة ويرتبها حسب حاجتها لخدماتك.",
+      `<button class="btn" data-nav="discover">${icon("radar")} اكتشاف عملاء</button>`)}</div>`;
+    return;
+  }
+  const count = s => ls.filter(l => l.stage === s).length;
+  const contacted = ls.filter(l => l.stage !== "new").length;
+  const replied = ls.filter(l => l.activity.some(a => a.type === "in")).length;
+  const strong = ls.filter(l => l.score >= 55 && l.wa && l.stage === "new").length;
+  const due = ls.filter(isDue).sort((a, b) => b.score - a.score);
+  const top = ls.filter(l => l.stage === "new" && l.wa).sort((a, b) => b.score - a.score).slice(0, 6);
+  const funnel = ["new","contacted","engaged","interested","meeting","won"].map(s => [s, count(s)]);
+  const maxF = Math.max(1, ...funnel.map(f => f[1]));
+  const byCat = Object.entries(ls.reduce((m, l) => (m[l.cat] = (m[l.cat] || 0) + 1, m), {})).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const maxC = Math.max(1, ...byCat.map(c => c[1]));
+  const recent = ls.flatMap(l => l.activity.filter(a => a.type !== "created").map(a => ({...a, l}))).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 6);
+  const evText = a => a.type === "out" ? "أرسلت رسالة" : a.type === "in" ? "رد العميل" : a.type === "note" ? "ملاحظة" : `تغيرت المرحلة: ${esc(a.text)}`;
+
+  $("#view").innerHTML = `
+  <div class="kpis">
+    <div class="card kpi"><span>كل العملاء</span><b>${fmtN(ls.length)}</b><small>${fmtN(ls.filter(l => l.wa).length)} برقم جوال</small></div>
+    <div class="card kpi"><span>فرص قوية لم تُراسل</span><b style="color:var(--hot)">${fmtN(strong)}</b><small>درجة 55 فأعلى</small></div>
+    <div class="card kpi"><span>تم التواصل</span><b>${fmtN(contacted)}</b><small>${fmtN(due.length)} متابعة مستحقة</small></div>
+    <div class="card kpi"><span>نسبة الرد</span><b>${fmtN(contacted ? Math.round(replied / contacted * 100) : 0)}٪</b><small>${fmtN(replied)} من ${fmtN(contacted)}</small></div>
+    <div class="card kpi"><span>تم البيع</span><b style="color:var(--st-won)">${fmtN(count("won"))}</b><small>${fmtN(count("meeting"))} اجتماع قادم</small></div>
+  </div>
+  <div class="cols-2">
+    <div class="grid">
+      <section class="card"><div class="card-h"><h2>مراحل البيع</h2><button class="btn ghost sm" data-nav="pipeline">فتح اللوحة</button></div>
+        <div class="card-b funnel">${funnel.map(([s, n]) => `<div class="fun-row"><span>${STAGE[s]}</span>
+          <div class="fun-bar"><i style="width:${n / maxF * 100}%;--c:var(--st-${s})"></i></div><b class="num">${fmtN(n)}</b></div>`).join("")}</div></section>
+      <section class="card"><div class="card-h"><h2>أفضل الفرص الجديدة</h2><button class="btn ghost sm" data-nav="leads">كل العملاء</button></div>
+        <div class="mini-list">${top.map(l => `<button class="mini" data-open="${esc(l.id)}">${scoreBadge(l.score)}
+          <span class="grow"><span class="t">${esc(l.name)}</span><span class="muted small">${esc(CATS[l.cat]?.ar)} · ${esc((l.reasons || [])[0] || "")}</span></span></button>`).join("")
+          || empty("users", "ما فيه فرص جديدة", "كل العملاء اللي عندهم رقم تم التواصل معهم.")}</div></section>
+    </div>
+    <div class="grid">
+      <section class="card"><div class="card-h"><h2>متابعات اليوم</h2>${due.length ? `<span class="badge">${due.length}</span>` : ""}</div>
+        <div class="mini-list">${due.slice(0, 5).map(l => `<button class="mini" data-open="${esc(l.id)}">${stagePill(l.stage)}
+          <span class="grow"><span class="t">${esc(l.name)}</span><span class="muted small">متابعة رقم ${fmtN(l.followups + 1)}</span></span></button>`).join("")
+          || `<div class="card-b muted">ما فيه متابعات مستحقة اليوم 👌</div>`}
+        ${due.length > 5 ? `<div class="card-b"><button class="btn sec sm" data-nav="tasks">عرض الكل (${fmtN(due.length)})</button></div>` : ""}</div></section>
+      <section class="card"><div class="card-h"><h2>حسب نوع النشاط</h2></div>
+        <div class="card-b funnel">${byCat.map(([c, n]) => `<div class="fun-row"><span>${esc(CATS[c]?.ar || c)}</span>
+          <div class="fun-bar"><i style="width:${n / maxC * 100}%;--c:var(--accent)"></i></div><b class="num">${fmtN(n)}</b></div>`).join("")}</div></section>
+      <section class="card"><div class="card-h"><h2>آخر النشاطات</h2></div>
+        <div class="mini-list">${recent.map(a => `<button class="mini" data-open="${esc(a.l.id)}"><span class="grow">
+          <span class="t">${esc(a.l.name)}</span><span class="muted small">${evText(a)} · ${rel(a.at)}</span></span></button>`).join("")
+          || `<div class="card-b muted">لا يوجد نشاط بعد</div>`}</div></section>
+    </div>
+  </div>`;
+}
+
+/* ================= views: discover ================= */
+let job = null;
+function renderDiscover(){
+  const sel = S().lastCats || ["dentist","clinic","salon"];
+  $("#view").innerHTML = `
+  <div class="cols-2">
+    <form class="card" id="discover-form">
+      <div class="card-h"><h2>بحث جديد</h2><span class="muted small">مصدر البيانات: OpenStreetMap · مجاني</span></div>
+      <div class="card-b grid">
+        <div class="fields">
+          <label class="field" for="d-city">المدينة أو الحي
+            <input id="d-city" required value="${esc(S().lastCity || "الرياض")}" placeholder="مثال: الرياض، جدة، Dubai">
+            <span class="hint">بالعربي أو الإنجليزي، كما يظهر في الخريطة</span></label>
+          <label class="field" for="d-min">أقل درجة تُحفظ
+            <input id="d-min" type="number" min="0" max="100" value="0"><span class="hint">0 يحفظ كل النتائج</span></label>
+        </div>
+        <div class="field">
+          <div class="spread"><span>نوع النشاط</span><button type="button" class="btn ghost sm" id="d-all">تحديد الكل</button></div>
+          <div class="chips">${Object.entries(CATS).map(([k, c]) =>
+            `<label class="chip"><input type="checkbox" value="${k}" ${sel.includes(k) ? "checked" : ""}>${c.ar}</label>`).join("")}</div>
+        </div>
+        <div class="row" ${window.claude ? "hidden" : ""}><button class="btn" id="d-run">${icon("radar")} ابدأ الجمع</button></div>
+        <div class="steps" id="d-steps"></div>
+      </div>
+      <div class="card-b grid" id="d-import" ${window.claude ? "" : 'style="border-top:1px solid var(--line)" hidden'}>
+        <div><b>جمع من خلال Overpass Turbo</b>
+          <p class="muted" style="margin:4px 0 0">${window.claude ? "هذي الصفحة على claude.ai ما تقدر تتصل بخادم الخريطة مباشرة، فالجمع يصير بثلاث خطوات سريعة:" : "إذا ما اشتغل الجمع المباشر، تقدر تجمع بثلاث خطوات:"}</p></div>
+        <ol style="margin:0;padding-inline-start:20px;display:grid;gap:6px">
+          <li>اضغط <b>افتح البحث</b>. يفتح موقع Overpass Turbo والبحث جاهز، وينتظر حتى تظهر النتائج على الخريطة.</li>
+          <li>هناك اضغط <b>Export</b> ثم <b>raw OSM data</b> عشان ينزل ملف JSON.</li>
+          <li>ارجع هنا واضغط <b>استيراد الملف</b> واختر الملف.</li>
+        </ol>
+        <div class="row">
+          <a class="btn sec" id="d-turbo" href="#" target="_blank" rel="noopener">${icon("radar")} 1. افتح البحث</a>
+          <label class="btn" for="d-file">${icon("down")} 3. استيراد الملف<input type="file" id="d-file" accept=".json,.geojson,application/json" hidden></label>
+        </div>
+      </div>
+    </form>
+    <section class="card"><div class="card-h"><h2>عمليات البحث السابقة</h2></div>
+      <div class="mini-list">${state.searches.slice(0, 10).map((s, i) => `<button class="mini" data-repeat="${i}"><span class="grow">
+        <span class="t">${esc(s.city)}</span><span class="muted small">${s.cats.map(c => CATS[c]?.ar).join("، ")} · ${fmtN(s.found)} نتيجة · ${rel(s.at)}</span>
+        </span><span class="btn ghost sm">إعادة</span></button>`).join("") || `<div class="card-b muted">لم تبحث بعد</div>`}</div></section>
+  </div>`;
+  $("#d-all").onclick = () => { const b = $$("#discover-form .chip input"), on = !b.every(x => x.checked); b.forEach(x => x.checked = on); };
+  $("#discover-form").onsubmit = runDiscover;
+  const syncTurbo = () => {
+    const cats = $$("#discover-form .chip input:checked").map(i => i.value);
+    $("#d-turbo").href = turboLink($("#d-city").value.trim() || "الرياض", cats.length ? cats : Object.keys(CATS));
+  };
+  $("#discover-form").addEventListener("input", syncTurbo); $("#d-all").addEventListener("click", syncTurbo); syncTurbo();
+  $("#d-file").onchange = importOsmFile;
+  if(job) renderSteps();
+}
+function renderSteps(){
+  const el = $("#d-steps"); if(!el || !job) return;
+  el.innerHTML = job.steps.map(s => `<div class="step ${s.st}"><span class="dot"></span>${esc(s.label)}${s.n != null ? ` <span class="muted num">· ${fmtN(s.n)}</span>` : ""}</div>`).join("")
+    + (job.done ? `<div class="row" style="margin-top:8px"><b>${esc(job.summary)}</b>${job.added ? `<button type="button" class="btn sm" data-nav="leads">عرض العملاء</button>` : ""}</div>` : "");
+  const run = $("#d-run"); if(run) run.disabled = !job.done;
+}
+async function runDiscover(ev){
+  ev.preventDefault();
+  if(job && !job.done) return;
+  const city = $("#d-city").value.trim();
+  const cats = $$("#discover-form .chip input:checked").map(i => i.value);
+  const min = +$("#d-min").value || 0;
+  if(!cats.length){ toast("اختر نوع نشاط واحد على الأقل"); return; }
+  Object.assign(state.settings, {lastCity:city, lastCats:cats});
+  job = {steps:cats.map(c => ({cat:c, label:`${CATS[c].ar} في ${city}`, st:""})), done:false, added:0};
+  renderSteps();
+  const seen = new Set();
+  for(const step of job.steps){
+    step.st = "run"; renderSteps();
+    try{
+      const els = await overpass(areaQuery(city, CATS[step.cat].f));
+      let n = 0;
+      for(const el of els){
+        const l = toLead(el, step.cat);
+        if(!l || l.score < min) continue;
+        n++; seen.add(l.id);
+        if(upsertLead(l)) job.added++;
+      }
+      step.st = "done"; step.n = n;
+    }catch(e){
+      step.st = "err"; step.label += ` — ${e.message}`;
+      if(e.offline){ job.steps.filter(s => !s.st).forEach(s => { s.st = "err"; }); $("#d-import").hidden = false; break; }
+    }
+    save(); renderSteps();
+    await new Promise(r => setTimeout(r, 1200));
+  }
+  job.done = true;
+  job.summary = job.steps.some(s => s.st === "err") && !seen.size ? "ما اكتمل الجمع. جرّب مرة ثانية أو استخدم Overpass Turbo تحت" : seen.size ? `لقيت ${fmtN(seen.size)} نشاط، منها ${fmtN(job.added)} جديد` : `ما لقيت نتائج. تأكد من اسم «${city}» أو جرّبه بالإنجليزي`;
+  state.searches.unshift({city, cats, found:seen.size, at:nowIso()}); state.searches = state.searches.slice(0, 30);
+  save(); renderSteps(); refreshChrome();
+  toast(job.summary);
+}
+
+async function importOsmFile(e){
+  const file = e.target.files[0]; if(!file) return;
+  e.target.value = "";
+  let els;
+  try{ const data = JSON.parse(await file.text()); els = data.elements || (data.features || []).map(f => ({type:(f.id || "").split("/")[0] || "node", id:(f.id || "").split("/")[1] || f.properties?.["@id"], tags:f.properties || {}, lat:f.geometry?.coordinates?.[1], lon:f.geometry?.coordinates?.[0]})); }
+  catch(err){ toast("الملف غير صالح. اختر ملف JSON من Export ← raw OSM data"); return; }
+  const min = +$("#d-min")?.value || 0;
+  let found = 0, added = 0;
+  for(const el of els){
+    const cat = classify(el.tags); if(!cat) continue;
+    const l = toLead(el, cat); if(!l || l.score < min) continue;
+    found++; if(upsertLead(l)) added++;
+  }
+  const city = $("#d-city")?.value.trim() || "";
+  state.searches.unshift({city, cats:[...new Set(els.map(x => classify(x.tags)).filter(Boolean))], found, at:nowIso()}); state.searches = state.searches.slice(0, 30);
+  save(); refreshChrome();
+  toast(found ? `تم استيراد ${fmtN(found)} نشاط، منها ${fmtN(added)} جديد` : "ما لقيت أنشطة بأسماء في الملف");
+  if(added) go("leads"); else renderDiscover();
+}
+
+/* ================= views: leads table ================= */
+const T = {q:"", stage:"", cat:"", min:0, phone:true, sort:"score", dir:-1, page:1, sel:new Set()};
+const PER = 50;
+function filtered(){
+  const q = T.q.trim(), qd = q.replace(/\D/g, "");
+  const val = (l, k) => k === "last" ? (l.updated || l.added || "") : l[k];
+  return leads().filter(l => l.score >= T.min && (!T.stage || l.stage === T.stage) && (!T.cat || l.cat === T.cat) && (!T.phone || l.wa)
+    && (!q || l.name.toLowerCase().includes(q.toLowerCase()) || (qd && (l.phone || "").replace(/\D/g, "").includes(qd))))
+    .sort((a, b) => { const va = val(a, T.sort), vb = val(b, T.sort); return (va > vb ? 1 : va < vb ? -1 : 0) * T.dir; });
+}
+function renderLeads(opts = {}){
+  if(opts.q != null){ T.q = opts.q; T.page = 1; T.phone = false; T.stage = ""; T.cat = ""; T.min = 0; }
+  const all = filtered(), pages = Math.max(1, Math.ceil(all.length / PER));
+  T.page = Math.min(T.page, pages);
+  const rows = all.slice((T.page - 1) * PER, T.page * PER);
+  const usedCats = [...new Set(leads().map(l => l.cat))];
+  const arrow = k => T.sort === k ? (T.dir < 0 ? " ↓" : " ↑") : "";
+  $("#view").innerHTML = `
+  <section class="card">
+    <div class="toolbar">
+      <input id="t-q" type="search" placeholder="تصفية بالاسم أو الرقم" value="${esc(T.q)}" style="flex:1;min-width:160px" aria-label="تصفية">
+      <select id="t-stage" aria-label="المرحلة"><option value="">كل المراحل</option>${STAGES.map(([k, v]) => `<option value="${k}" ${T.stage === k ? "selected" : ""}>${v}</option>`).join("")}</select>
+      <select id="t-cat" aria-label="النوع"><option value="">كل الأنواع</option>${usedCats.map(k => `<option value="${k}" ${T.cat === k ? "selected" : ""}>${esc(CATS[k]?.ar || k)}</option>`).join("")}</select>
+      <div class="seg" role="group" aria-label="أقل درجة">${[[0,"كل الدرجات"],[35,"35+"],[55,"55+"]].map(([v, t]) => `<button type="button" data-min="${v}" aria-pressed="${T.min === v}">${t}</button>`).join("")}</div>
+      <label class="row small" style="gap:6px"><input type="checkbox" class="chk" id="t-phone" ${T.phone ? "checked" : ""}> برقم جوال فقط</label>
+    </div>
+    ${T.sel.size ? `<div class="bulk"><b>${fmtN(T.sel.size)} محدد</b>
+      <select id="b-stage" class="input" style="width:auto" aria-label="نقل إلى مرحلة"><option value="">نقل إلى مرحلة…</option>${STAGES.map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
+      <button class="btn sec sm" id="b-export">${icon("down")} تصدير المحدد</button>
+      <button class="btn danger sm" id="b-del">حذف</button>
+      <button class="btn ghost sm" id="b-clear">إلغاء التحديد</button></div>` : ""}
+    ${rows.length ? `<div class="table-wrap"><table>
+      <thead><tr><th style="width:36px"><input type="checkbox" class="chk" id="t-all" aria-label="تحديد الصفحة" ${rows.every(l => T.sel.has(l.id)) ? "checked" : ""}></th>
+        <th data-sort="score">الدرجة${arrow("score")}</th><th data-sort="name">النشاط${arrow("name")}</th><th class="hide-sm">النوع</th>
+        <th>المرحلة</th><th class="hide-sm">الجوال</th><th class="hide-sm" data-sort="last">آخر تحديث${arrow("last")}</th><th></th></tr></thead>
+      <tbody>${rows.map(l => `<tr data-open="${esc(l.id)}" class="${T.sel.has(l.id) ? "sel" : ""}">
+        <td data-stop><input type="checkbox" class="chk" data-sel="${esc(l.id)}" ${T.sel.has(l.id) ? "checked" : ""} aria-label="تحديد ${esc(l.name)}"></td>
+        <td>${scoreBadge(l.score)}</td>
+        <td><div class="t">${esc(l.name)}</div><div class="muted small">${esc((l.reasons || [])[0] || "")}</div></td>
+        <td class="hide-sm">${esc(CATS[l.cat]?.ar || l.cat)}</td>
+        <td>${stagePill(l.stage)}</td>
+        <td class="hide-sm num" dir="ltr" style="text-align:end">${esc(l.phone || "—")}</td>
+        <td class="hide-sm muted">${rel(l.updated || l.added)}</td>
+        <td data-stop>${l.wa && !["opted_out","won","lost"].includes(l.stage) ? `<a class="btn wa sm" href="${waLink(l.wa, nextMessage(l))}" target="_blank" rel="noopener" data-quick="${esc(l.id)}" title="فتح واتساب" aria-label="فتح واتساب">${icon("wa")}</a>` : ""}</td>
+      </tr>`).join("")}</tbody></table></div>
+      <div class="pager"><span class="muted num">${fmtN((T.page - 1) * PER + 1)}–${fmtN(Math.min(T.page * PER, all.length))} من ${fmtN(all.length)}</span>
+        <div class="row"><button class="btn sec sm" id="p-prev" ${T.page <= 1 ? "disabled" : ""}>السابق</button><button class="btn sec sm" id="p-next" ${T.page >= pages ? "disabled" : ""}>التالي</button></div></div>`
+    : empty("users", leads().length ? "ما فيه نتائج بهذي الفلاتر" : "ما فيه عملاء بعد", leads().length ? "خفّف الفلاتر أو امسح البحث." : "ابدأ من صفحة اكتشاف العملاء.",
+        leads().length ? "" : `<button class="btn" data-nav="discover">اكتشاف عملاء</button>`)}
+  </section>`;
+  const re = () => { T.page = 1; renderLeads(); };
+  $("#t-q").oninput = e => { T.q = e.target.value; re(); const i = $("#t-q"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); };
+  $("#t-stage").onchange = e => { T.stage = e.target.value; re(); };
+  $("#t-cat").onchange = e => { T.cat = e.target.value; re(); };
+  $("#t-phone").onchange = e => { T.phone = e.target.checked; re(); };
+  $$("[data-min]").forEach(b => b.onclick = () => { T.min = +b.dataset.min; re(); });
+  $$("th[data-sort]").forEach(th => th.onclick = () => { const k = th.dataset.sort; T.dir = T.sort === k ? -T.dir : (k === "name" ? 1 : -1); T.sort = k; renderLeads(); });
+  $("#p-prev") && ($("#p-prev").onclick = () => { T.page--; renderLeads(); window.scrollTo(0, 0); });
+  $("#p-next") && ($("#p-next").onclick = () => { T.page++; renderLeads(); window.scrollTo(0, 0); });
+  $("#t-all") && ($("#t-all").onchange = e => { rows.forEach(l => e.target.checked ? T.sel.add(l.id) : T.sel.delete(l.id)); renderLeads(); });
+  $$("[data-sel]").forEach(c => c.onchange = () => { c.checked ? T.sel.add(c.dataset.sel) : T.sel.delete(c.dataset.sel); renderLeads(); });
+  if(T.sel.size){
+    $("#b-stage").onchange = e => { if(!e.target.value) return; const n = T.sel.size; T.sel.forEach(id => state.leads[id] && setStage(state.leads[id], e.target.value)); T.sel.clear(); save(); rerender(); toast(`تم نقل ${fmtN(n)} عميل`); };
+    $("#b-export").onclick = () => exportCsv([...T.sel].map(id => state.leads[id]).filter(Boolean));
+    $("#b-clear").onclick = () => { T.sel.clear(); renderLeads(); };
+    $("#b-del").onclick = e => {
+      if(e.target.dataset.armed){ const n = T.sel.size; T.sel.forEach(id => delete state.leads[id]); T.sel.clear(); save(); rerender(); toast(`تم حذف ${fmtN(n)} عميل`); }
+      else { e.target.dataset.armed = 1; e.target.textContent = "اضغط مرة ثانية للتأكيد"; }
+    };
+  }
+}
+
+/* ================= views: pipeline ================= */
+function renderPipeline(){
+  const ls = leads();
+  if(!ls.length){ $("#view").innerHTML = `<div class="card">${empty("board", "لوحة المراحل فاضية", "اكتشف عملاء أولاً، وبعدها اسحب البطاقات بين المراحل.", `<button class="btn" data-nav="discover">اكتشاف عملاء</button>`)}</div>`; return; }
+  const cols = STAGES.filter(([k]) => k !== "opted_out");
+  $("#view").innerHTML = `<p class="muted" style="margin:0 0 12px">اسحب البطاقة لمرحلة ثانية، أو افتحها لتغيير المرحلة. عمود «جديد» يعرض أعلى 30 درجة برقم جوال.</p>
+  <div class="board">${cols.map(([k, v]) => {
+    let items = ls.filter(l => l.stage === k);
+    const total = items.length;
+    if(k === "new") items = items.filter(l => l.wa);
+    items = items.sort((a, b) => b.score - a.score).slice(0, k === "new" ? 30 : 100);
+    return `<section class="col" data-col="${k}"><div class="col-h"><span class="pill" style="--c:var(--st-${k})">${v}</span><span class="muted num">${fmtN(total)}</span></div>
+      <div class="col-b">${items.map(l => `<article class="kcard" draggable="true" data-id="${esc(l.id)}" data-open="${esc(l.id)}">
+        <div class="spread"><span class="t">${esc(l.name)}</span>${scoreBadge(l.score)}</div>
+        <span class="muted small">${esc(CATS[l.cat]?.ar || "")}${isDue(l) ? ` · <b style="color:var(--warm)">متابعة مستحقة</b>` : ""}</span>
+      </article>`).join("")}</div></section>`;
+  }).join("")}</div>`;
+  $$(".kcard").forEach(c => {
+    c.ondragstart = e => { e.dataTransfer.setData("text/plain", c.dataset.id); c.classList.add("drag"); };
+    c.ondragend = () => c.classList.remove("drag");
+  });
+  $$(".col").forEach(col => {
+    col.ondragover = e => { e.preventDefault(); col.classList.add("over"); };
+    col.ondragleave = () => col.classList.remove("over");
+    col.ondrop = e => {
+      e.preventDefault(); col.classList.remove("over");
+      const l = state.leads[e.dataTransfer.getData("text/plain")];
+      if(l && l.stage !== col.dataset.col){ setStage(l, col.dataset.col); save(); rerender(); toast(`${l.name}: ${STAGE[col.dataset.col]}`); }
+    };
+  });
+}
+
+/* ================= views: tasks ================= */
+let taskLimit = 30;
+function renderTasks(opts = {}){
+  if(!opts.keepScroll) taskLimit = 30;
+  const due = leads().filter(isDue).sort((a, b) => b.score - a.score);
+  const upcoming = leads().filter(l => l.nextAt && !isDue(l) && OPEN_STAGES.includes(l.stage) && l.followups < S().max)
+    .sort((a, b) => a.nextAt.localeCompare(b.nextAt)).slice(0, 15);
+  $("#view").innerHTML = `
+  <div class="cols-2">
+    <section class="card"><div class="card-h"><h2>مستحقة الآن</h2>${due.length ? `<span class="badge">${due.length}</span>` : ""}</div>
+      ${due.length ? `<div class="grid card-b">${due.slice(0, taskLimit).map(taskCard).join("")}
+        ${due.length > taskLimit ? `<button class="btn sec" id="more-tasks">عرض ${fmtN(Math.min(30, due.length - taskLimit))} إضافية (المتبقي ${fmtN(due.length - taskLimit)})</button>` : ""}</div>` : empty("bell", "ما فيه متابعات مستحقة", "لما يحين موعد متابعة عميل راسلته، يظهر هنا والرسالة جاهزة.")}
+    </section>
+    <section class="card"><div class="card-h"><h2>القادمة</h2></div>
+      <div class="mini-list">${upcoming.map(l => `<button class="mini" data-open="${esc(l.id)}"><span class="grow"><span class="t">${esc(l.name)}</span>
+        <span class="muted small">${fmtDate(l.nextAt, false)} · متابعة رقم ${fmtN(l.followups + 1)}</span></span>${stagePill(l.stage)}</button>`).join("")
+        || `<div class="card-b muted">لا يوجد</div>`}</div></section>
+  </div>`;
+  $("#more-tasks") && ($("#more-tasks").onclick = () => { taskLimit += 30; renderTasks({keepScroll:true}); });
+}
+function taskCard(l){
+  return `<div class="card" style="padding:14px;display:grid;gap:10px">
+    <div class="spread"><button class="btn ghost sm" data-open="${esc(l.id)}" style="padding:0;font-size:15px">${esc(l.name)}</button>
+      <span class="row small muted">متابعة ${fmtN(l.followups + 1)} من ${fmtN(S().max)} ${stagePill(l.stage)}</span></div>
+    ${composer(l, fill(S().follow, l))}
+  </div>`;
+}
+function composer(l, text){
+  return `<div class="grid" style="gap:8px" data-composer="${esc(l.id)}">
+    <textarea class="input" rows="${l.stage === "new" ? 7 : 3}" data-role="text" aria-label="نص الرسالة">${esc(text)}</textarea>
+    <div class="row"><a class="btn wa" data-role="wa" href="${waLink(l.wa, text)}" target="_blank" rel="noopener">${icon("wa")} 1. افتح واتساب</a>
+      <button class="btn" data-act="sent">2. تم الإرسال ✓</button></div></div>`;
+}
+
+/* ================= drawer ================= */
+let openId = null, lastFocus = null;
+function openLead(id){ lastFocus = document.activeElement; openId = id; renderDrawer(); $(".drawer [data-close]")?.focus(); }
+function closeDrawer(){ if(!openId) return; openId = null; $("#drawer-root").innerHTML = ""; lastFocus?.focus?.(); }
+function renderDrawer(){
+  const l = state.leads[openId]; if(!l){ closeDrawer(); return; }
+  const canSend = l.wa && !["opted_out","won","lost"].includes(l.stage) && (l.stage === "new" || l.followups < S().max);
+  const evc = {out:"var(--wa)", in:"var(--st-engaged)", stage:"var(--st-interested)", note:"var(--warm)", created:"var(--line-2)"};
+  const evt = {out:"رسالة مرسلة", in:"رد العميل", stage:"تغيير المرحلة", note:"ملاحظة", created:"أُضيف من الخريطة"};
+  $("#drawer-root").innerHTML = `<div class="scrim" data-close></div>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-label="${esc(l.name)}">
+    <div class="dr-h">
+      <div class="spread" style="flex-wrap:nowrap"><h2>${esc(l.name)}</h2><button class="btn ghost sm" data-close aria-label="إغلاق">${icon("x")}</button></div>
+      <div class="row">${scoreBadge(l.score)}
+        <select class="input" id="dr-stage" style="width:auto" aria-label="المرحلة">${STAGES.map(([k, v]) => `<option value="${k}" ${k === l.stage ? "selected" : ""}>${v}</option>`).join("")}</select>
+        <a class="btn sec sm" href="${mapsLink(l)}" target="_blank" rel="noopener">${icon("pin")} الخريطة</a>
+        ${safeUrl(l.website) ? `<a class="btn sec sm" href="${esc(safeUrl(l.website))}" target="_blank" rel="noopener noreferrer">الموقع</a>` : ""}</div>
+    </div>
+    <div class="dr-b">
+      ${canSend ? `<div class="dr-sec"><h3>${l.stage === "new" ? "الرسالة الأولى" : `رسالة متابعة (${fmtN(l.followups + 1)} من ${fmtN(S().max)})`}</h3>${composer(l, nextMessage(l))}</div>` : ""}
+      ${l.stage !== "new" && l.stage !== "opted_out" ? `<div class="dr-sec"><h3>رد العميل</h3>
+        <div class="grid" style="gap:8px"><textarea class="input" rows="2" id="dr-reply" placeholder="الصق هنا الرد اللي وصلك على واتساب" aria-label="رد العميل"></textarea>
+        <div class="row"><button class="btn sec" id="dr-save-reply">${icon("inbox")} حفظ الرد</button></div></div></div>` : ""}
+      <div class="dr-sec"><h3>التفاصيل</h3><dl class="props">
+        <dt>النوع</dt><dd>${esc(CATS[l.cat]?.ar || l.cat)}</dd>
+        <dt>الهاتف</dt><dd><span dir="ltr">${esc(l.phone || "—")}</span></dd>
+        <dt>واتساب</dt><dd>${l.wa ? `<span dir="ltr">+${esc(l.wa)}</span>` : "غير متوفر"}</dd>
+        <dt>العنوان</dt><dd>${esc(l.address || "—")}</dd>
+        <dt>ساعات العمل</dt><dd><span dir="ltr">${esc(l.hours || "—")}</span></dd>
+        <dt>البريد</dt><dd>${esc(l.email || "—")}</dd>
+        <dt>المتابعة القادمة</dt><dd>${l.nextAt ? fmtDate(l.nextAt) : "—"}</dd>
+      </dl></div>
+      <div class="dr-sec"><h3>لماذا هذه الدرجة</h3><div class="row">${(l.reasons || []).map(r => `<span class="tag">${esc(r)}</span>`).join("") || "—"}</div></div>
+      <div class="dr-sec"><h3>خدمات مقترحة</h3><div class="row">${(l.services || []).map(r => `<span class="tag">${esc(r)}</span>`).join("")}</div></div>
+      <div class="dr-sec"><h3>ملاحظات</h3><textarea class="input" rows="3" id="dr-notes" placeholder="مثال: صاحب العيادة د. أحمد، يفضل التواصل بعد العصر" aria-label="ملاحظات">${esc(l.notes || "")}</textarea></div>
+      <div class="dr-sec"><h3>سجل النشاط</h3><div class="timeline">${[...l.activity].reverse().map(a =>
+        `<div class="ev" style="--c:${evc[a.type]}"><b>${evt[a.type]}</b> <time>${fmtDate(a.at)}</time>${a.text ? `<div class="body">${esc(a.text)}</div>` : ""}</div>`).join("")}</div></div>
+    </div>
+  </aside>`;
+  $("#dr-stage").onchange = e => { setStage(l, e.target.value); save(); rerender(); toast(`المرحلة: ${STAGE[l.stage]}`); };
+  $("#dr-notes").onchange = e => { if(l.notes !== e.target.value){ l.notes = e.target.value; log(l, "note", e.target.value || "(حُذفت الملاحظة)"); save(); toast("تم حفظ الملاحظة"); renderDrawer(); } };
+  $("#dr-save-reply") && ($("#dr-save-reply").onclick = () => {
+    const t = $("#dr-reply").value.trim(); if(!t) return;
+    const msg = recordReply(l, t); save(); rerender(); toast(msg);
+  });
+}
+
+/* ================= settings ================= */
+function renderSettings(){
+  const s = S();
+  $("#view").innerHTML = `
+  <div class="grid" style="max-width:860px">
+    <form class="card" id="set-form">
+      <div class="card-h"><h2>ملف الشركة والرسائل</h2></div>
+      <div class="card-b grid">
+        <div class="fields">
+          <label class="field" for="s-company">اسم شركتك<input id="s-company" value="${esc(s.company)}"></label>
+          <label class="field" for="s-offer">العرض<input id="s-offer" value="${esc(s.offer)}"></label>
+          <label class="field" for="s-cc">رمز الدولة للجوال<select id="s-cc">${[["966","السعودية"],["971","الإمارات"],["965","الكويت"],["974","قطر"],["973","البحرين"],["968","عُمان"],["20","مصر"],["962","الأردن"]]
+            .map(([c, n]) => `<option value="${c}" ${s.cc === c ? "selected" : ""}>${n} ${c}</option>`).join("")}</select></label>
+          <label class="field" for="s-days">المتابعة بعد (أيام)<input id="s-days" type="number" min="1" max="30" value="${s.days}"></label>
+          <label class="field" for="s-max">أقصى عدد متابعات<input id="s-max" type="number" min="0" max="5" value="${s.max}"></label>
+        </div>
+        <label class="field" for="s-intro">الرسالة الأولى<textarea id="s-intro" rows="7">${esc(s.intro)}</textarea>
+          <span class="hint">المتغيرات: {الاسم} {الملاحظة} {الخدمات} {الشركة} {العرض}</span></label>
+        <label class="field" for="s-follow">رسالة المتابعة<textarea id="s-follow" rows="3">${esc(s.follow)}</textarea></label>
+        <div class="row"><button class="btn">حفظ الإعدادات</button><button type="button" class="btn ghost" id="s-reset">استرجاع القوالب الافتراضية</button></div>
+      </div>
+    </form>
+    <section class="card"><div class="card-h"><h2>البيانات والنسخ الاحتياطي</h2></div>
+      <div class="card-b grid">
+        <p class="muted" style="margin:0">${cloud.col ? "بياناتك محفوظة في حسابك على claude.ai، خاصة فيك ولا يشوفها غيرك حتى لو شاركت الرابط. وتقدر تفتحها من أي جهاز." : "كل بياناتك محفوظة في هذا المتصفح على جهازك فقط، ولا تُرسل لأي خادم. خذ نسخة احتياطية بانتظام، وتقدر تنقلها لجهاز ثاني."}</p>
+        <div class="row">
+          <button class="btn sec" id="x-csv">${icon("down")} تصدير Excel</button>
+          <button class="btn sec" id="x-json">${icon("down")} نسخة احتياطية</button>
+          <label class="btn sec" for="x-import">استرجاع نسخة<input type="file" id="x-import" accept=".json" hidden></label>
+          <button class="btn danger" id="x-wipe">حذف كل العملاء</button>
+        </div>
+      </div></section>
+  </div>`;
+  $("#set-form").onsubmit = e => {
+    e.preventDefault();
+    Object.assign(state.settings, {company:$("#s-company").value.trim() || DEFAULTS.company, offer:$("#s-offer").value.trim() || DEFAULTS.offer, cc:$("#s-cc").value,
+      days:Math.max(1, +$("#s-days").value || 3), max:Math.max(0, +$("#s-max").value), intro:$("#s-intro").value || DEFAULTS.intro, follow:$("#s-follow").value || DEFAULTS.follow});
+    save(); refreshChrome(); toast("تم حفظ الإعدادات");
+  };
+  $("#s-reset").onclick = () => { $("#s-intro").value = DEFAULTS.intro; $("#s-follow").value = DEFAULTS.follow; toast("اضغط «حفظ الإعدادات» لتطبيق القوالب الافتراضية"); };
+  $("#x-csv").onclick = () => exportCsv(leads());
+  $("#x-json").onclick = () => download(`radar-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state), "application/json");
+  $("#x-import").onchange = async e => {
+    const f = e.target.files[0]; if(!f) return;
+    try{ state = migrate(JSON.parse(await f.text())); save(); toast(`تم استرجاع ${fmtN(leads().length)} عميل`); go("dashboard"); }
+    catch(err){ toast("الملف غير صالح"); }
+  };
+  $("#x-wipe").onclick = e => {
+    if(e.target.dataset.armed){ state.leads = {}; save(); toast("تم حذف كل العملاء"); rerender(); }
+    else { e.target.dataset.armed = 1; e.target.textContent = "متأكد؟ اضغط مرة ثانية للحذف"; }
+  };
+}
+async function download(name, content, type){
+  if(window.claude?.use){
+    const dl = await claude.use("downloads").catch(() => null);
+    if(dl){
+      try{ await dl.save({filename:name, data:new Blob([content], {type})}); }
+      catch(e){ if(e?.code !== "declined") toast("ما قدرت أنزّل الملف هنا"); }
+      return;
+    }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([content], {type})); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function exportCsv(list){
+  const cols = [["score","الدرجة"],["name","الاسم"],["cat","النوع"],["stage","المرحلة"],["phone","الهاتف"],["wa","واتساب"],["website","الموقع"],["address","العنوان"],["reasons","الأسباب"],["services","الخدمات المقترحة"],["notes","ملاحظات"]];
+  const cell = v => `"${String(Array.isArray(v) ? v.join("، ") : v ?? "").replace(/"/g, '""')}"`;
+  const rows = [...list].sort((a, b) => b.score - a.score).map(l => cols.map(([k]) => cell(k === "cat" ? CATS[l.cat]?.ar : k === "stage" ? STAGE[l.stage] : l[k])).join(","));
+  download("عملاء.csv", "\ufeff" + [cols.map(c => cell(c[1])).join(","), ...rows].join("\n"), "text/csv");
+  toast(`تم تصدير ${fmtN(list.length)} عميل`);
+}
+
+/* ================= global events ================= */
+document.addEventListener("click", e => {
+  const nav = e.target.closest("[data-nav]"); if(nav){ closeDrawer(); go(nav.dataset.nav); return; }
+  if(e.target.closest("[data-close]")){ closeDrawer(); return; }
+  const rep = e.target.closest("[data-repeat]");
+  if(rep){
+    const s = state.searches[+rep.dataset.repeat]; $("#d-city").value = s.city;
+    $$("#discover-form .chip input").forEach(i => i.checked = s.cats.includes(i.value));
+    $("#discover-form").dispatchEvent(new Event("input"));
+    if(window.claude) toast("جهزت البحث. اضغط «1. افتح البحث»"); else $("#discover-form").requestSubmit();
+    return;
+  }
+  // The WhatsApp link opens in a new tab; the drawer opens alongside so the send can be confirmed.
+  const quick = e.target.closest("[data-quick]"); if(quick){ openLead(quick.dataset.quick); return; }
+  if(e.target.closest("[data-stop]")) return;
+  const sent = e.target.closest('[data-act="sent"]');
+  if(sent){
+    const box = sent.closest("[data-composer]"), l = state.leads[box.dataset.composer];
+    recordSent(l, $('[data-role="text"]', box).value);
+    save(); rerender(); toast(`تم تسجيل الإرسال: ${l.name}`); return;
+  }
+  const open = e.target.closest("[data-open]");
+  if(open && !e.target.closest("a")) openLead(open.dataset.open);
+});
+document.addEventListener("input", e => {
+  if(e.target.dataset.role !== "text") return;
+  const box = e.target.closest("[data-composer]"), l = state.leads[box.dataset.composer];
+  $('[data-role="wa"]', box).href = waLink(l.wa, e.target.value);
+});
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape" && openId){ closeDrawer(); return; }
+  if(e.key === "/" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){ e.preventDefault(); $("#global-q").focus(); }
+});
+$("#global-q").addEventListener("keydown", e => {
+  if(e.key === "Enter"){ const q = e.target.value; closeDrawer(); go("leads", {q}); }
+});
+window.addEventListener("hashchange", () => { const v = location.hash.slice(1); if(v && v !== current) go(v); });
+
+/* ================= boot ================= */
+$("#view").innerHTML = `<div class="empty">${icon("radar")}<b>جارٍ تحميل بياناتك…</b></div>`;
+initStore().catch(e => { load(); showFatal(e.message); }).then(() => {
+  $("#foot-local").hidden = !!cloud.col; $("#foot-cloud").hidden = !cloud.col;
+  if(!cloud.col) updateUsage();
+  go(location.hash.slice(1) || (leads().length ? "dashboard" : "discover"));
+});
+</script>
+</body>
+</html>
