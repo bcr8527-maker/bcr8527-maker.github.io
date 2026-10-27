@@ -14,22 +14,19 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 
-<!-- Google Ads tag: fill AW_ID + labels after creating conversion actions -->
+<!-- Google tag (gtag.js) - Google Ads AW-18220482111 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18220482111"></script>
 <script>
   window.KARMA = {
-    AW_ID: '',            // e.g. 'AW-1234567890'
-    LABEL_WHATSAPP: '',   // conversion label for WhatsApp clicks
-    LABEL_CALL: '',       // conversion label for phone-call clicks
-    LABEL_FORM: ''        // conversion label for booking-form submits
+    AW_ID: 'AW-18220482111',
+    LABEL_WHATSAPP: 'YAMlCNKMrqsdEL_8mfBD',   // Karma - WhatsApp Click
+    LABEL_CALL: 'pgX_CNWMrqsdEL_8mfBD',       // Karma - Phone Click
+    LABEL_FORM: 'YAMlCNKMrqsdEL_8mfBD'        // booking form opens WhatsApp
   };
   window.dataLayer = window.dataLayer || [];
   function gtag(){ dataLayer.push(arguments); }
-  if (KARMA.AW_ID) {
-    var s = document.createElement('script');
-    s.async = true; s.src = 'https://www.googletagmanager.com/gtag/js?id=' + KARMA.AW_ID;
-    document.head.appendChild(s);
-    gtag('js', new Date()); gtag('config', KARMA.AW_ID);
-  }
+  gtag('js', new Date());
+  gtag('config', KARMA.AW_ID);
   function karmaTrack(kind){
     try {
       dataLayer.push({ event: 'karma_' + kind });
